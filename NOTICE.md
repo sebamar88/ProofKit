@@ -1,6 +1,6 @@
 # Notices
 
-SSD-God is an original framework that distills workflow ideas from several open source projects. This repository does not vendor their source code.
+SSD-Core is an original framework that distills workflow ideas from several open source projects. This repository does not vendor their source code.
 
 The projects below were reviewed as design influences. Their licenses were checked on 2026-05-03.
 

@@ -1,8 +1,8 @@
-# SSD-God
+# SSD-Core
 
 **Spec-driven development for any agent, on any operating system.**
 
-SSD-God is a portable SDD framework for teams that want AI coding agents to build from durable specifications instead of fragile chat history.
+SSD-Core is a portable SDD framework for teams that want AI coding agents to build from durable specifications instead of fragile chat history.
 
 It gives you a small protocol, a repository-native artifact layout, profile-driven workflows, and dependency-free reference tooling. Use it with Codex, Claude Code, Cursor, OpenCode, Copilot, Kiro, a local script, or an agent you have not invented yet. The protocol does not care. Your specs remain plain Markdown in your repo.
 
@@ -22,7 +22,7 @@ AI agents are fast, but speed without shared intent creates drift:
 - handoffs lose context
 - each agent reinvents process from scratch
 
-SSD-God fixes the workflow layer. It makes the repository carry the intent, evidence, and lifecycle.
+SSD-Core fixes the workflow layer. It makes the repository carry the intent, evidence, and lifecycle.
 
 ## What You Get Today
 
@@ -71,7 +71,7 @@ Protocol paths are logical repository paths. Adapters translate paths, commands,
 
 ### Profile Driven
 
-Not every change needs enterprise ceremony. SSD-God ships profiles for:
+Not every change needs enterprise ceremony. SSD-Core ships profiles for:
 
 - `quick`
 - `standard`
@@ -171,7 +171,7 @@ Still early:
 
 ## Influences And Attribution
 
-SSD-God is a new framework, but it intentionally distills lessons from existing MIT-licensed SDD and agent workflow projects:
+SSD-Core is a new framework, but it intentionally distills lessons from existing MIT-licensed SDD and agent workflow projects:
 
 - [GitHub Spec Kit](https://github.com/github/spec-kit) — constitution-driven SDD, phase gates, and traceability.
 - [OpenSpec](https://github.com/Fission-AI/OpenSpec) — change folders, delta specs, and archive/sync workflow.
@@ -180,10 +180,10 @@ SSD-God is a new framework, but it intentionally distills lessons from existing 
 
 All four projects are MIT licensed as of the license files checked on 2026-05-03. See [NOTICE.md](NOTICE.md) for attribution details.
 
-SSD-God does not claim endorsement by these projects and does not use their trademarks as product names. BMAD-related names are trademarks of BMad Code, LLC; they are referenced only for attribution.
+SSD-Core does not claim endorsement by these projects and does not use their trademarks as product names. BMAD-related names are trademarks of BMad Code, LLC; they are referenced only for attribution.
 
 ## License
 
-SSD-God is released under the [MIT License](LICENSE).
+SSD-Core is released under the [MIT License](LICENSE).
 
 Third-party inspiration and license notices are tracked in [NOTICE.md](NOTICE.md).

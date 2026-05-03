@@ -50,6 +50,12 @@ class SddToolingTests(unittest.TestCase):
 
         self.assertEqual(findings, [])
 
+    def test_current_repository_status_has_no_active_changes(self) -> None:
+        findings, changes = sdd.status(REPO_ROOT)
+
+        self.assertEqual(findings, [])
+        self.assertEqual(changes, [])
+
 
 if __name__ == "__main__":
     unittest.main()

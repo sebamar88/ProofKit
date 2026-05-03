@@ -81,6 +81,19 @@ class Finding:
         return f"{self.severity.upper()}: {location}{self.message}"
 
 
+@dataclass(frozen=True)
+class ChangeSummary:
+    change_id: str
+    profile: str
+    present: list[str]
+    missing: list[str]
+    statuses: dict[str, str]
+
+    @property
+    def is_complete(self) -> bool:
+        return not self.missing
+
+
 def logical_path(root: Path, value: str) -> Path:
     return root.joinpath(*value.split("/"))
 
@@ -356,6 +369,91 @@ def validate(root: Path) -> list[Finding]:
     return findings
 
 
+def detect_change_profile(change_dir: Path) -> str:
+    for path in sorted(change_dir.glob("*.md")):
+        metadata, error = read_frontmatter(path)
+        if error is None:
+            profile = metadata.get("profile")
+            if profile in PROFILE_ARTIFACTS:
+                return profile
+    return "unknown"
+
+
+def summarize_change(change_dir: Path) -> ChangeSummary:
+    profile = detect_change_profile(change_dir)
+    present = sorted(path.name for path in change_dir.glob("*.md") if path.is_file())
+    expected = PROFILE_ARTIFACTS.get(profile, [])
+    missing = [filename for filename in expected if filename not in present]
+    statuses: dict[str, str] = {}
+
+    for filename in present:
+        path = change_dir / filename
+        metadata, error = read_frontmatter(path)
+        if error is not None:
+            statuses[filename] = "invalid-frontmatter"
+        else:
+            statuses[filename] = metadata.get("status", "unknown")
+
+    return ChangeSummary(
+        change_id=change_dir.name,
+        profile=profile,
+        present=present,
+        missing=missing,
+        statuses=statuses,
+    )
+
+
+def active_change_directories(root: Path) -> list[Path]:
+    changes_dir = root / ".sdd" / "changes"
+    if not changes_dir.is_dir():
+        return []
+    return sorted(path for path in changes_dir.iterdir() if path.is_dir())
+
+
+def status(root: Path) -> tuple[list[Finding], list[ChangeSummary]]:
+    findings = validate(root)
+    changes = [summarize_change(path) for path in active_change_directories(root)]
+    for change in changes:
+        if change.profile == "unknown":
+            findings.append(Finding("warning", root / ".sdd" / "changes" / change.change_id, "could not detect profile"))
+        if change.missing:
+            missing = ", ".join(change.missing)
+            findings.append(Finding("warning", root / ".sdd" / "changes" / change.change_id, f"missing profile artifacts: {missing}"))
+    return findings, changes
+
+
+def print_status(root: Path) -> int:
+    findings, changes = status(root)
+    errors = [finding for finding in findings if finding.severity == "error"]
+    warnings = [finding for finding in findings if finding.severity == "warning"]
+
+    print("SDD status")
+    print(f"- root: {root}")
+    print(f"- validation: {'fail' if errors else 'pass'}")
+    print(f"- active changes: {len(changes)}")
+
+    if changes:
+        print("")
+        print("Changes:")
+        for change in changes:
+            completeness = "complete" if change.is_complete else "incomplete"
+            print(f"- {change.change_id} [{change.profile}] {completeness}")
+            if change.present:
+                present = ", ".join(change.present)
+                print(f"  present: {present}")
+            if change.missing:
+                missing = ", ".join(change.missing)
+                print(f"  missing: {missing}")
+
+    if findings:
+        print("")
+        print("Findings:")
+        for finding in findings:
+            print(finding.format(root))
+
+    return 1 if errors else 0
+
+
 def create_change(root: Path, change_id: str, profile: str, title: str | None) -> list[Finding]:
     findings: list[Finding] = []
     if not TOKEN_PATTERN.match(change_id):
@@ -414,6 +512,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root to validate; defaults to the current directory",
     )
 
+    status_parser = subcommands.add_parser("status", help="show SDD-Core repository status")
+    status_parser.add_argument(
+        "--root",
+        default=".",
+        help="repository root; defaults to the current directory",
+    )
+
     new_parser = subcommands.add_parser("new", help="create a new SDD-Core change artifact set")
     new_parser.add_argument("change_id", help="kebab-case change identifier")
     new_parser.add_argument(
@@ -442,6 +547,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "validate":
         root = Path(args.root).resolve()
         return print_findings(root, validate(root))
+
+    if args.command == "status":
+        root = Path(args.root).resolve()
+        return print_status(root)
 
     if args.command == "new":
         root = Path(args.root).resolve()

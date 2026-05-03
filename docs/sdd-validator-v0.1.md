@@ -11,7 +11,7 @@ scope: reference-tooling
 
 ## Purpose
 
-`scripts/sdd.py` is a dependency-free reference utility for validating the repository's SDD-Core artifacts and creating change artifact sets.
+`scripts/sdd.py` is a dependency-free reference utility for validating the repository's SDD-Core artifacts, showing SDD status, and creating change artifact sets.
 
 It is not the protocol. It is a small portable tool that proves the initial artifact layout can be checked without requiring a specific agent, shell, package manager, or operating system.
 
@@ -27,6 +27,12 @@ Validate another repository root:
 
 ```text
 python scripts/sdd.py validate --root path-to-repository
+```
+
+Show current SDD status:
+
+```text
+python scripts/sdd.py status
 ```
 
 Create a standard change:
@@ -56,6 +62,21 @@ The validator checks:
 - JSON syntax for schema files
 - required top-level JSON Schema metadata
 - protocol pointer to the canonical v0.1 spec
+
+## Status
+
+`sdd status` summarizes repository health and active changes.
+
+It reports:
+
+- validation pass or fail
+- active change count
+- detected profile for each active change
+- present Markdown artifacts
+- missing artifacts required by the detected profile
+- validation errors and warnings
+
+`status` is read-only. It never creates, updates, archives, or deletes artifacts.
 
 ## Change Creation
 

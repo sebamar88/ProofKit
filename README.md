@@ -53,6 +53,7 @@ python scripts/sdd.py status
 python scripts/sdd.py new <change-id> --profile <profile> --title "Human intent"
 python scripts/sdd.py check <change-id>
 python scripts/sdd.py archive <change-id>
+python scripts/sdd.py sync-specs <change-id>
 ```
 
 ## Core Ideas
@@ -116,6 +117,12 @@ Archive only after verification is complete:
 python scripts/sdd.py archive add-search
 ```
 
+Sync a verified delta into living specs:
+
+```text
+python scripts/sdd.py sync-specs add-search
+```
+
 ## The Lifecycle
 
 ```text
@@ -150,11 +157,12 @@ Solid:
 - adapter contract
 - portable reference CLI
 - validation/status/new/check/archive commands
+- conservative living spec sync
 
 Still early:
 
 - full JSON Schema validation
-- living spec sync
+- semantic living spec merge
 - successful archive fixture for a verified real change
 - packaged CLI
 - concrete adapters

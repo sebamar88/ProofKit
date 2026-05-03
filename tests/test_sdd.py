@@ -70,6 +70,18 @@ class SddToolingTests(unittest.TestCase):
         self.assertEqual(findings[0].severity, "error")
         self.assertIn("change-id is not valid", findings[0].message)
 
+    def test_sync_specs_rejects_missing_change(self) -> None:
+        findings = sdd.sync_specs(REPO_ROOT, "missing-change")
+
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].severity, "error")
+        self.assertIn("change does not exist", findings[0].message)
+
+    def test_strip_frontmatter_text_removes_frontmatter(self) -> None:
+        text = "---\nschema: sdd.artifact.v1\n---\n\n# Body\n"
+
+        self.assertEqual(sdd.strip_frontmatter_text(text), "# Body\n")
+
 
 if __name__ == "__main__":
     unittest.main()

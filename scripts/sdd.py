@@ -121,6 +121,22 @@ def frontmatter(schema: str, artifact: str, change_id: str, profile: str, today:
     )
 
 
+def living_spec_frontmatter(change_id: str, today: str) -> str:
+    return "\n".join(
+        [
+            "---",
+            "schema: sdd.living-spec.v1",
+            "artifact: spec",
+            f"change_id: {change_id}",
+            "status: active",
+            f"created: {today}",
+            f"updated: {today}",
+            "---",
+            "",
+        ]
+    )
+
+
 def artifact_title(filename: str) -> str:
     words = artifact_name(filename).replace("-", " ").split()
     return " ".join(word.capitalize() for word in words)
@@ -518,6 +534,66 @@ def archive_change(root: Path, change_id: str) -> list[Finding]:
     return []
 
 
+def strip_frontmatter_text(text: str) -> str:
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return text
+    for index, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            return "\n".join(lines[index + 1 :]).lstrip() + ("\n" if text.endswith("\n") else "")
+    return text
+
+
+def append_sync_record(archive_path: Path, spec_path: Path, root: Path) -> None:
+    relative_spec = spec_path.relative_to(root).as_posix()
+    existing = archive_path.read_text(encoding="utf-8") if archive_path.exists() else ""
+    marker = f"- Synced living spec: `{relative_spec}`"
+    if marker in existing:
+        return
+    suffix = "\n" if existing.endswith("\n") or not existing else "\n\n"
+    archive_path.write_text(existing + suffix + "## Sync Record\n\n" + marker + "\n", encoding="utf-8")
+
+
+def sync_specs(root: Path, change_id: str) -> list[Finding]:
+    findings = check_change(root, change_id)
+    if findings:
+        return findings
+
+    change_dir = change_directory(root, change_id)
+    delta_path = change_dir / "delta-spec.md"
+    if not delta_path.is_file():
+        return [Finding("error", delta_path, "delta-spec.md is required for spec sync")]
+
+    specs_root = root / ".sdd" / "specs"
+    if not specs_root.is_dir():
+        return [Finding("error", specs_root, "specs directory is missing")]
+
+    spec_dir = specs_root / change_id
+    spec_path = spec_dir / "spec.md"
+    if spec_path.exists():
+        return [Finding("error", spec_path, "living spec already exists")]
+
+    today = date.today().isoformat()
+    delta_body = strip_frontmatter_text(delta_path.read_text(encoding="utf-8"))
+    spec_dir.mkdir(parents=True)
+    spec_path.write_text(
+        living_spec_frontmatter(change_id, today)
+        + f"# {change_id.replace('-', ' ').title()} Spec\n\n"
+        + "## Source Change\n\n"
+        + f"- `{change_dir.relative_to(root).as_posix()}`\n\n"
+        + "## Behavior Delta Applied\n\n"
+        + delta_body,
+        encoding="utf-8",
+    )
+
+    archive_path = change_dir / "archive.md"
+    if archive_path.is_file():
+        append_sync_record(archive_path, spec_path, root)
+
+    print(f"Synced living spec: {spec_path.as_posix()}")
+    return []
+
+
 def print_status(root: Path) -> int:
     findings, changes = status(root)
     errors = [finding for finding in findings if finding.severity == "error"]
@@ -631,6 +707,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
+    sync_parser = subcommands.add_parser("sync-specs", help="sync a verified change delta into living specs")
+    sync_parser.add_argument("change_id", help="kebab-case change identifier")
+    sync_parser.add_argument(
+        "--root",
+        default=".",
+        help="repository root; defaults to the current directory",
+    )
+
     new_parser = subcommands.add_parser("new", help="create a new SDD-Core change artifact set")
     new_parser.add_argument("change_id", help="kebab-case change identifier")
     new_parser.add_argument(
@@ -671,6 +755,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "archive":
         root = Path(args.root).resolve()
         findings = archive_change(root, args.change_id)
+        if findings:
+            return print_findings(root, findings)
+        return 0
+
+    if args.command == "sync-specs":
+        root = Path(args.root).resolve()
+        findings = sync_specs(root, args.change_id)
         if findings:
             return print_findings(root, findings)
         return 0

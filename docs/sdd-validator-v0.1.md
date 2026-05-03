@@ -11,7 +11,7 @@ scope: reference-tooling
 
 ## Purpose
 
-`scripts/sdd.py` is a dependency-free reference utility for validating the repository's SDD-Core artifacts, showing SDD status, creating change artifact sets, checking archive readiness, and archiving verified changes.
+`scripts/sdd.py` is a dependency-free reference utility for validating the repository's SDD-Core artifacts, showing SDD status, creating change artifact sets, checking archive readiness, syncing living specs, and archiving verified changes.
 
 It is not the protocol. It is a small portable tool that proves the initial artifact layout can be checked without requiring a specific agent, shell, package manager, or operating system.
 
@@ -45,6 +45,12 @@ Archive a verified change:
 
 ```text
 python scripts/sdd.py archive add-search
+```
+
+Sync a verified delta spec into living specs:
+
+```text
+python scripts/sdd.py sync-specs add-search
 ```
 
 Create a standard change:
@@ -117,8 +123,19 @@ Rules:
 
 - archive is blocked when readiness checks fail
 - archive is blocked when the destination already exists
-- archive does not update living specs yet
+- archive does not run `sync-specs` automatically
 - archive does not overwrite existing archive records
+
+## Spec Sync
+
+`sdd sync-specs <change-id>` copies a verified `delta-spec.md` into `.sdd/specs/<change-id>/spec.md` as a living spec snapshot and records the sync in `archive.md` when that file exists.
+
+Rules:
+
+- sync uses the same readiness gate as `sdd check`
+- `delta-spec.md` is required
+- existing living specs are not overwritten
+- sync is conservative and does not perform semantic merge yet
 
 ## Change Creation
 

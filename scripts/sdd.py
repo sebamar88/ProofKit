@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import sys
 from dataclasses import dataclass
 from datetime import date
@@ -63,6 +64,7 @@ ARTIFACT_STATUSES = {
 
 SCHEMA_PATTERN = re.compile(r"^sdd\.[a-z0-9-]+\.v[0-9]+$")
 TOKEN_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+OPEN_TASK_PATTERN = re.compile(r"^\s*-\s+\[\s\]", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -422,6 +424,100 @@ def status(root: Path) -> tuple[list[Finding], list[ChangeSummary]]:
     return findings, changes
 
 
+def change_directory(root: Path, change_id: str) -> Path:
+    return root / ".sdd" / "changes" / change_id
+
+
+def validate_change_id(change_id: str) -> list[Finding]:
+    if not TOKEN_PATTERN.match(change_id):
+        return [Finding("error", None, f"change-id is not valid: {change_id}")]
+    return []
+
+
+def check_change(root: Path, change_id: str) -> list[Finding]:
+    findings = validate_change_id(change_id)
+    if findings:
+        return findings
+
+    change_dir = change_directory(root, change_id)
+    if not change_dir.is_dir():
+        return [Finding("error", change_dir, "change does not exist")]
+
+    summary = summarize_change(change_dir)
+    if summary.profile == "unknown":
+        findings.append(Finding("error", change_dir, "could not detect profile"))
+        return findings
+
+    for filename in summary.missing:
+        findings.append(Finding("error", change_dir / filename, "required profile artifact is missing"))
+
+    for filename in summary.present:
+        path = change_dir / filename
+        metadata, error = read_frontmatter(path)
+        if error is not None:
+            findings.append(Finding("error", path, error))
+            continue
+        if metadata.get("status") == "blocked":
+            findings.append(Finding("error", path, "artifact status is blocked"))
+
+    tasks_path = change_dir / "tasks.md"
+    if tasks_path.is_file():
+        tasks_text = tasks_path.read_text(encoding="utf-8")
+        if OPEN_TASK_PATTERN.search(tasks_text):
+            findings.append(Finding("error", tasks_path, "open tasks remain"))
+
+    verification_path = change_dir / "verification.md"
+    if verification_path.is_file():
+        metadata, error = read_frontmatter(verification_path)
+        if error is None and metadata.get("status") != "verified":
+            findings.append(Finding("error", verification_path, "verification status must be verified"))
+
+        verification_text = verification_path.read_text(encoding="utf-8").lower()
+        blocked_terms = ["not-run", "pending verification evidence"]
+        for term in blocked_terms:
+            if term in verification_text:
+                findings.append(Finding("error", verification_path, f"verification still contains: {term}"))
+
+    return findings
+
+
+def print_check(root: Path, change_id: str) -> int:
+    findings = check_change(root, change_id)
+    if not findings:
+        print(f"Change {change_id} is ready.")
+        return 0
+
+    print(f"Change {change_id} is not ready.")
+    for finding in findings:
+        print(finding.format(root))
+    return 1
+
+
+def archive_change(root: Path, change_id: str) -> list[Finding]:
+    findings = check_change(root, change_id)
+    if findings:
+        return findings
+
+    source = change_directory(root, change_id)
+    archive_root = root / ".sdd" / "archive"
+    if not archive_root.is_dir():
+        return [Finding("error", archive_root, "archive directory is missing")]
+
+    destination = archive_root / f"{date.today().isoformat()}-{change_id}"
+    if destination.exists():
+        return [Finding("error", destination, "archive destination already exists")]
+
+    changes_root = (root / ".sdd" / "changes").resolve()
+    source_resolved = source.resolve()
+    if not source_resolved.is_relative_to(changes_root):
+        return [Finding("error", source, "resolved change path is outside .sdd/changes")]
+
+    shutil.copytree(source_resolved, destination)
+    shutil.rmtree(source_resolved)
+    print(f"Archived change: {destination.as_posix()}")
+    return []
+
+
 def print_status(root: Path) -> int:
     findings, changes = status(root)
     errors = [finding for finding in findings if finding.severity == "error"]
@@ -519,6 +615,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
+    check_parser = subcommands.add_parser("check", help="check whether an SDD-Core change is ready to archive")
+    check_parser.add_argument("change_id", help="kebab-case change identifier")
+    check_parser.add_argument(
+        "--root",
+        default=".",
+        help="repository root; defaults to the current directory",
+    )
+
+    archive_parser = subcommands.add_parser("archive", help="archive a verified SDD-Core change")
+    archive_parser.add_argument("change_id", help="kebab-case change identifier")
+    archive_parser.add_argument(
+        "--root",
+        default=".",
+        help="repository root; defaults to the current directory",
+    )
+
     new_parser = subcommands.add_parser("new", help="create a new SDD-Core change artifact set")
     new_parser.add_argument("change_id", help="kebab-case change identifier")
     new_parser.add_argument(
@@ -551,6 +663,17 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "status":
         root = Path(args.root).resolve()
         return print_status(root)
+
+    if args.command == "check":
+        root = Path(args.root).resolve()
+        return print_check(root, args.change_id)
+
+    if args.command == "archive":
+        root = Path(args.root).resolve()
+        findings = archive_change(root, args.change_id)
+        if findings:
+            return print_findings(root, findings)
+        return 0
 
     if args.command == "new":
         root = Path(args.root).resolve()

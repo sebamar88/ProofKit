@@ -11,7 +11,7 @@ scope: reference-tooling
 
 ## Purpose
 
-`scripts/sdd.py` is a dependency-free reference utility for validating the repository's SDD-Core artifacts, showing SDD status, and creating change artifact sets.
+`scripts/sdd.py` is a dependency-free reference utility for validating the repository's SDD-Core artifacts, showing SDD status, creating change artifact sets, checking archive readiness, and archiving verified changes.
 
 It is not the protocol. It is a small portable tool that proves the initial artifact layout can be checked without requiring a specific agent, shell, package manager, or operating system.
 
@@ -33,6 +33,18 @@ Show current SDD status:
 
 ```text
 python scripts/sdd.py status
+```
+
+Check whether a change is ready to archive:
+
+```text
+python scripts/sdd.py check add-search
+```
+
+Archive a verified change:
+
+```text
+python scripts/sdd.py archive add-search
 ```
 
 Create a standard change:
@@ -77,6 +89,36 @@ It reports:
 - validation errors and warnings
 
 `status` is read-only. It never creates, updates, archives, or deletes artifacts.
+
+## Readiness Check
+
+`sdd check <change-id>` evaluates whether a change is ready to archive.
+
+The first readiness gate is intentionally conservative:
+
+- the change directory must exist
+- the profile must be detectable from artifact frontmatter
+- all profile-required artifacts must exist
+- artifacts must not be `blocked`
+- `tasks.md` must not contain open checkbox tasks
+- `verification.md` frontmatter status must be `verified`
+- `verification.md` must not contain `not-run`
+- `verification.md` must not contain `pending verification evidence`
+
+The command exits with status code `0` only when the change is ready.
+
+## Archive
+
+`sdd archive <change-id>` first runs the same readiness gate as `sdd check`.
+
+When the change is ready, it copies the active change directory to `.sdd/archive/<date>-<change-id>/` and removes the active change directory from `.sdd/changes/`.
+
+Rules:
+
+- archive is blocked when readiness checks fail
+- archive is blocked when the destination already exists
+- archive does not update living specs yet
+- archive does not overwrite existing archive records
 
 ## Change Creation
 

@@ -56,6 +56,20 @@ class SddToolingTests(unittest.TestCase):
         self.assertEqual(findings, [])
         self.assertEqual(changes, [])
 
+    def test_check_change_rejects_missing_change(self) -> None:
+        findings = sdd.check_change(REPO_ROOT, "missing-change")
+
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].severity, "error")
+        self.assertIn("change does not exist", findings[0].message)
+
+    def test_archive_rejects_invalid_change_id_before_filesystem_access(self) -> None:
+        findings = sdd.archive_change(REPO_ROOT, "Invalid Change")
+
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].severity, "error")
+        self.assertIn("change-id is not valid", findings[0].message)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -268,6 +268,8 @@ Run the complete local release gate:
 python scripts/release_check.py
 ```
 
+Publish the npm package from GitHub Actions by running the `Publish npm` workflow or pushing a `v*` tag. The workflow expects the repository secret `NPM_REPOSITORY_TOKEN`.
+
 ## Influences And Attribution
 
 SSD-Core is a new framework, but it intentionally distills lessons from existing MIT-licensed SDD and agent workflow projects:

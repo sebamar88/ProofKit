@@ -10,5 +10,6 @@ Initial SSD-Core production candidate.
 - Added concrete adapter manifests for Codex, Claude Code, Gemini CLI, OpenCode, and Qwen Code.
 - Added a portable release readiness script and CI workflow.
 - Added an npm wrapper package that delegates to the Python core.
+- Added a GitHub Actions npm publish workflow using `NPM_REPOSITORY_TOKEN`.
 - Added end-to-end lifecycle tests and a standard verified change example.
 - Added MIT license and attribution notices for the MIT-licensed projects that influenced SSD-Core.

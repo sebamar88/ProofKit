@@ -53,6 +53,18 @@ python scripts/release_check.py --keep-temp
 
 CI should run the same command on Windows, macOS, and Linux before release.
 
+## npm Publishing
+
+The repository includes a `Publish npm` workflow for publishing the npm wrapper package.
+
+Required GitHub secret:
+
+```text
+NPM_REPOSITORY_TOKEN
+```
+
+The workflow runs `python scripts/release_check.py` before `npm publish`, and only publishes on manual `workflow_dispatch` or `v*` tags.
+
 ## Compatibility Policy
 
 For v0.1.x:

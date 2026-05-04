@@ -33,6 +33,15 @@ jobs:
       - name: Run release readiness checks
         run: python scripts/release_check.py
 
+      - name: Validate npm token
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN}" ]; then
+            echo "::error::NPM_REPOSITORY_TOKEN is not available to this workflow. Add it as a repository Actions secret, then rerun Publish npm."
+            exit 1
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_REPOSITORY_TOKEN }}
+
       - name: Publish to npm
         run: npm publish --provenance
         env:

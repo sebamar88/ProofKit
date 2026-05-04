@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Iterable
 
 
+VERSION = "0.1.0"
+
 REQUIRED_DIRECTORIES = [
     ".sdd",
     ".sdd/adapters",
@@ -815,6 +817,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root to validate; defaults to the current directory",
     )
 
+    subcommands.add_parser("version", help="show SSD-Core version")
+
     init_parser = subcommands.add_parser("init", help="initialize SDD-Core artifacts in a repository")
     init_parser.add_argument(
         "--root",
@@ -881,6 +885,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "validate":
         root = Path(args.root).resolve()
         return print_findings(root, validate(root))
+
+    if args.command == "version":
+        print(f"SSD-Core {VERSION}")
+        return 0
 
     if args.command == "init":
         root = Path(args.root).resolve()

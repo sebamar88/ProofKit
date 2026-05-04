@@ -53,6 +53,7 @@ scripts/
 The current reference utility supports:
 
 ```text
+ssd-core version
 python scripts/sdd.py validate
 python scripts/sdd.py init --root <path>
 python scripts/sdd.py status
@@ -93,46 +94,58 @@ A checked task is not proof. Verification artifacts must record what was checked
 
 ## Quick Start
 
+Install from this repository:
+
+```text
+python -m pip install -e .
+```
+
+Check the CLI:
+
+```text
+ssd-core version
+```
+
 Initialize SSD-Core in another repository:
 
 ```text
-python scripts/sdd.py init --root path-to-repository
+ssd-core init --root path-to-repository
 ```
 
 Validate the SDD foundation:
 
 ```text
-python scripts/sdd.py validate
+ssd-core validate
 ```
 
 Create a change:
 
 ```text
-python scripts/sdd.py new add-search --profile standard --title "Add search"
+ssd-core new add-search --profile standard --title "Add search"
 ```
 
 Inspect current state:
 
 ```text
-python scripts/sdd.py status
+ssd-core status
 ```
 
 Check whether the change is ready to archive:
 
 ```text
-python scripts/sdd.py check add-search
+ssd-core check add-search
 ```
 
 Archive only after verification is complete:
 
 ```text
-python scripts/sdd.py archive add-search
+ssd-core archive add-search
 ```
 
 Sync a verified delta into living specs:
 
 ```text
-python scripts/sdd.py sync-specs add-search
+ssd-core sync-specs add-search
 ```
 
 ## The Lifecycle
@@ -173,7 +186,7 @@ Solid:
 - end-to-end standard-profile example
 - end-to-end lifecycle test
 - adapter contract
-- portable reference CLI
+- installable portable reference CLI
 - init/validate/status/new/check/sync-specs/archive commands
 - conservative living spec sync
 

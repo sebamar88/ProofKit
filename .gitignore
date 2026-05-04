@@ -2,3 +2,7 @@
 __pycache__/
 *.pyc
 .tmp-tests/
+.tmp-install/
+build/
+dist/
+*.egg-info/

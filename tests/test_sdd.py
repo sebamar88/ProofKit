@@ -15,6 +15,9 @@ import sdd  # noqa: E402
 
 
 class SddToolingTests(unittest.TestCase):
+    def test_version_is_defined(self) -> None:
+        self.assertEqual(sdd.VERSION, "0.1.0")
+
     def test_standard_profile_artifacts_are_defined(self) -> None:
         self.assertEqual(
             sdd.PROFILE_ARTIFACTS["standard"],

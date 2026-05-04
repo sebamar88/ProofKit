@@ -17,58 +17,70 @@ It is not the protocol. It is a small portable tool that proves the initial arti
 
 ## Usage
 
+Install from the repository:
+
+```text
+python -m pip install -e .
+```
+
+Show the installed CLI version:
+
+```text
+ssd-core version
+```
+
 Validate the current repository:
 
 ```text
-python scripts/sdd.py validate
+ssd-core validate
 ```
 
 Initialize SSD-Core in a repository:
 
 ```text
-python scripts/sdd.py init --root path-to-repository
+ssd-core init --root path-to-repository
 ```
 
 Validate another repository root:
 
 ```text
-python scripts/sdd.py validate --root path-to-repository
+ssd-core validate --root path-to-repository
 ```
 
 Show current SDD status:
 
 ```text
-python scripts/sdd.py status
+ssd-core status
 ```
 
 Check whether a change is ready to archive:
 
 ```text
-python scripts/sdd.py check add-search
+ssd-core check add-search
 ```
 
 Archive a verified change:
 
 ```text
-python scripts/sdd.py archive add-search
+ssd-core archive add-search
 ```
 
 Sync a verified delta spec into living specs:
 
 ```text
-python scripts/sdd.py sync-specs add-search
+ssd-core sync-specs add-search
 ```
 
 Create a standard change:
 
 ```text
-python scripts/sdd.py new add-search --profile standard --title "Add search"
+ssd-core new add-search --profile standard --title "Add search"
 ```
 
 Create a change in another repository root:
 
 ```text
-python scripts/sdd.py new fix-login --profile bugfix --root path-to-repository
+ssd-core new fix-login --profile bugfix --root path-to-repository
 ```
 
 ## Checks

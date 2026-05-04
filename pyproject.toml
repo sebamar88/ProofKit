@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ssd-core"
+version = "0.1.0"
+description = "Portable spec-driven development framework for any agent and operating system."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+  { name = "SSD-Core contributors" }
+]
+keywords = ["sdd", "spec-driven-development", "agents", "ai", "workflow"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development :: Documentation",
+  "Topic :: Software Development :: Quality Assurance"
+]
+dependencies = []
+
+[project.scripts]
+ssd-core = "scripts.sdd:main"
+
+[tool.setuptools.packages.find]
+include = ["scripts*"]

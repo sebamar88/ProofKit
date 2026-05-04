@@ -6,6 +6,7 @@ __pycache__/
 .tmp-adapter-wheel-smoke*/
 .tmp-install/
 .tmp-venv*/
+.tmp-uv*/
 .tmp-prod-smoke*/
 .tmp-wheel/
 .tmp-release-check/

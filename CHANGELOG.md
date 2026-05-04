@@ -12,5 +12,6 @@ Initial SSD-Core production candidate.
 - Added an npm wrapper package that delegates to the Python core.
 - Added a GitHub Actions npm publish workflow using `NPM_REPOSITORY_TOKEN`.
 - Added release-time version consistency checks across Python, npm, and Git tags.
+- Added a `uv venv --seed` fallback for Linux environments without `python3-venv`.
 - Added end-to-end lifecycle tests and a standard verified change example.
 - Added MIT license and attribution notices for the MIT-licensed projects that influenced SSD-Core.

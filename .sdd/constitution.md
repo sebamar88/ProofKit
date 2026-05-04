@@ -15,6 +15,12 @@ updated: 2026-05-03
 - The protocol core is independent from any agent, IDE, model, operating system, shell, terminal, package manager, or path separator.
 - Platform-specific behavior belongs in adapters.
 - Agents and adapters work from artifact references whenever practical.
+- DRY: avoid duplicating behavior contracts or workflow logic.
+- KISS: prefer the simplest design that still preserves quality gates.
+- YAGNI: defer features until they are required by validated use cases.
+- SOLID: keep modules focused, composable, and stable at their boundaries.
+- GRASP: place responsibilities where domain information naturally lives.
+- LoD: reduce coupling by limiting dependencies to immediate collaborators.
 
 ## Engineering Constraints
 

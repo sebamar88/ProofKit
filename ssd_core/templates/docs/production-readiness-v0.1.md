@@ -29,7 +29,7 @@ It does not mean the protocol is finished. It means the current framework can be
 
 ## Non-Goals For v0.1
 
-- No concrete IDE or agent adapter is bundled beyond the generic Markdown adapter.
+- No executable runtime command wrappers are bundled for concrete adapters; v0.1 ships capability manifests for Codex, Claude Code, Gemini CLI, OpenCode, and Qwen Code.
 - No network services, telemetry, daemon, database, or hosted state.
 - No dependency on JSON Schema libraries.
 - No semantic merge engine for living specs.

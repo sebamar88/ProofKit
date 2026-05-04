@@ -219,6 +219,12 @@ Still early:
 
 ## Design Principles
 
+- DRY: avoid duplicated logic, duplicated contracts, and duplicated workflow decisions.
+- KISS: choose the simplest implementation that preserves correctness and traceability.
+- YAGNI: do not add mechanisms before they are required by real workflow pressure.
+- SOLID: prefer composable, focused modules with clear responsibilities and stable interfaces.
+- GRASP: assign responsibilities to the components that own the information and behavior.
+- LoD: minimize coupling; each module should talk only to immediate collaborators.
 - Keep the core small.
 - Push tool-specific behavior into adapters.
 - Prefer files over chat memory.
@@ -267,6 +273,8 @@ Run the complete local release gate:
 ```text
 python scripts/release_check.py
 ```
+
+See the one-week closure checklist at [docs/superpowers/plans/2026-05-03-v0.1-closure-week.md](docs/superpowers/plans/2026-05-03-v0.1-closure-week.md).
 
 Publish the npm package from GitHub Actions by running the `Publish npm` workflow or pushing a `v*` tag. The workflow expects the repository secret `NPM_REPOSITORY_TOKEN`.
 

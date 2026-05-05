@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.6.0 - 2026-05-05
+
+- Added `--loop` flag to `ssd-core auto`: drains all auto-executable steps in sequence, stopping at the first phase that requires human input, at completion, or on a blocking finding. No file watchers, no polling, no new dependencies.
+- Extracted `_print_auto_step()` internal helper to share rendering logic between single-step and loop modes.
+- Rewrote `ssd-core demo` to showcase the `auto --loop` narrative: engine pauses visibly at proposal and task phases (human-work gates), drives through transitions automatically, and closes the change with checksummed evidence. Removes the old manual step-by-step walkthrough.
+
 ## 0.5.0 - 2026-05-05
 
 - Added `ssd-core auto <change>` command: advisor + executor in one call. Executes transitions, `sync-specs`, and `archive` automatically when artifacts are ready. For human-work phases (proposal, tasks, verification, etc.) prints the exact file path to edit and blocks until re-run. Exit 0 always unless the workflow is blocked.
@@ -12,7 +18,7 @@
 - Exported `AutoStep` from the `ssd_core` package public API.
 - Updated package description to: "AI development governance engine — prevent hallucinated completion and vanishing intent in agent-assisted software teams."
 
-
+## 0.4.0 - 2026-05-05
 
 - Added `ssd-core demo` command: annotated Golden Path walkthrough in a temporary directory. Runs the full `init → new → task → verify → archive` cycle with real SDD-Core logic, checksummed evidence, and automatic cleanup. Exit 0 on success, 1 on first failure.
 - Added `EngineStep` frozen dataclass as the structured return type for agent-driven execution loops: `phase`, `next_action`, `suggested_command`, `allowed_commands`, `blocking_findings`, `is_blocked`, `is_complete`.
@@ -21,7 +27,7 @@
 - Exported `EngineStep` from the `ssd_core` package public API.
 - Rewrote README: new structure (What / Why / Try It Now / Golden Path / Orchestrator API / WorkflowEngine loop / Hard Enforcement / When To Use / Reference). Opening line repositioned from "anti-hallucination" to "governance layer for AI-driven development".
 
-
+## 0.3.0 - 2026-05-05
 
 - Added `WorkflowEngine` as the declarative command gate for workflow commands, including `guard()`, `allowed_commands()`, and `execute()`.
 - Added `COMMAND_GATES` as the single command-to-phase policy map for `verify`, `sync-specs`, and `archive`.

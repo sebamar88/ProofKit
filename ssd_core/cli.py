@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import ClassVar, Iterable, Protocol
 
 
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 
 REQUIRED_DIRECTORIES = [
     ".sdd",
@@ -2559,12 +2559,18 @@ def print_findings(root: Path, findings: Iterable[Finding]) -> int:
 
 
 def run_demo() -> int:
-    """Run an annotated Golden Path walkthrough in a temporary directory.
+    """Run an annotated Golden Path demo in a temporary directory.
 
-    Executes the complete ``init → new → task → verify → archive`` flow against
-    a throw-away directory and cleans up afterwards.  Every step runs real
-    SDD-Core logic — no mocks, no shortcuts.
+    Shows the full governance loop:
+      1. Init + create change
+      2. ``ssd-core auto --loop`` drains all auto-executable setup steps
+      3. The agent fills proposal.md (simulated)
+      4. ``ssd-core auto --loop`` advances to the task phase
+      5. The agent closes tasks (simulated)
+      6. ``ssd-core verify --command`` captures real execution evidence
+      7. ``ssd-core auto --loop`` closes the change (archive)
 
+    Every step runs real SDD-Core logic — no mocks, no shortcuts.
     Exit code: 0 on success, 1 on first failure.
     """
     import tempfile
@@ -2572,10 +2578,9 @@ def run_demo() -> int:
     change_id = "demo-harden-login"
     profile = "quick"
     title = "Harden login error handling"
-    total = 7
 
-    def step(n: int, label: str) -> None:
-        print(f"\n── Step {n}/{total}: {label}")
+    def section(label: str) -> None:
+        print(f"\n── {label}")
 
     def ok(msg: str) -> None:
         print(f"   ✓ {msg}")
@@ -2589,30 +2594,40 @@ def run_demo() -> int:
     with tempfile.TemporaryDirectory(prefix="sdd-demo-") as tmpdir:
         root = Path(tmpdir)
 
-        print("SSD-Core Golden Path Demo")
-        print("=" * 48)
-        print(f"Temp root: {root}")
-        print()
-        print("Governance layer: AI-driven development with real evidence.")
-        print("Protocol: propose → task → verify → archive")
+        print("SSD-Core — AI Development Governance Engine")
+        print("=" * 52)
+        print("Problem: AI agents produce code but lose intent, skip verification,")
+        print("         and claim completion without evidence.")
+        print("Solution: a governance layer that enforces the protocol automatically.")
+        print(f"\nTemp root: {root}")
 
-        # ── Step 1: init ─────────────────────────────────────────────
-        step(1, "ssd-core init")
+        # ── Phase 0: init ─────────────────────────────────────────────
+        section("ssd-core init  (one-time repository setup)")
         findings = init_project(root)
         if findings:
             return fail("init failed", findings, root)
-        ok("Initialized .sdd/ (adapters, agents, profiles, schemas, skills, specs)")
+        ok("Initialized .sdd/ — adapters, agents, profiles, schemas, skills, specs")
 
-        # ── Step 2: new change ────────────────────────────────────────
-        step(2, f"ssd-core new {change_id} --profile quick --title '{title}'")
+        # ── Phase 1: new change ───────────────────────────────────────
+        section(f"ssd-core new {change_id} --profile quick --title '{title}'")
         findings = create_change(root, change_id, profile, title)
         if findings:
             return fail("create_change failed", findings, root)
-        ok(f"Created .sdd/changes/{change_id}/ (3 artifacts: proposal.md, tasks.md, verification.md)")
-        ok(f"Phase automatically recorded → propose (artifacts inferred)")
+        ok(f"Created .sdd/changes/{change_id}/ — proposal.md, tasks.md, verification.md")
 
-        # ── Step 3: agent fills proposal.md ──────────────────────────
-        step(3, "Agent fills proposal.md → status: ready")
+        # ── Phase 2: auto --loop (nothing to execute yet) ─────────────
+        section(f"ssd-core auto {change_id} --loop  (engine runs; pauses for human input)")
+        result = _auto_advance(root, change_id)
+        print(f"   → phase: {result.step.phase.value}")
+        if result.needs_human_work:
+            change_dir = change_directory(root, change_id)
+            artifact_file = _PHASE_ARTIFACT_FILE.get(result.step.phase, "proposal.md")
+            artifact_path = (change_dir / artifact_file).relative_to(root).as_posix()
+            print(f"   → Engine paused. Needs human input.")
+            print(f"     Edit: {artifact_path}")
+
+        # ── Phase 3: agent fills proposal.md ─────────────────────────
+        section("Agent fills proposal.md → status: ready  (simulated)")
         change_dir = change_directory(root, change_id)
         proposal_path = change_dir / "proposal.md"
         text = proposal_path.read_text(encoding="utf-8")
@@ -2624,8 +2639,26 @@ def run_demo() -> int:
         proposal_path.write_text(text, encoding="utf-8")
         ok("proposal.md: intent recorded, status → ready")
 
-        # ── Step 4: agent closes tasks.md ────────────────────────────
-        step(4, "Agent closes all tasks in tasks.md → status: ready")
+        # ── Phase 4: auto --loop (advances to task, pauses) ──────────
+        section(f"ssd-core auto {change_id} --loop  (engine resumes after human edit)")
+        # Loop until it can't advance.
+        loop_steps = 0
+        while True:
+            r = _auto_advance(root, change_id)
+            if r.executed_command:
+                print(f"   → Executed: {r.executed_command}")
+                loop_steps += 1
+            if r.needs_human_work or r.step.is_complete or r.step.is_blocked or not r.executed_command:
+                break
+        print(f"   → phase: {r.step.phase.value} ({loop_steps} step(s) executed)")
+        if r.needs_human_work:
+            artifact_file = _PHASE_ARTIFACT_FILE.get(r.step.phase, "tasks.md")
+            artifact_path = (change_dir / artifact_file).relative_to(root).as_posix()
+            print(f"   → Engine paused. Needs human input.")
+            print(f"     Edit: {artifact_path}")
+
+        # ── Phase 5: agent closes tasks.md ───────────────────────────
+        section("Agent closes tasks in tasks.md → status: ready  (simulated)")
         tasks_path = change_dir / "tasks.md"
         text = tasks_path.read_text(encoding="utf-8")
         text = text.replace("- [ ]", "- [x]")
@@ -2637,66 +2670,67 @@ def run_demo() -> int:
         tasks_path.write_text(text, encoding="utf-8")
         ok("tasks.md: T-001 closed, status → ready")
 
-        # ── Step 5: transition task ───────────────────────────────────
-        step(5, f"ssd-core transition {change_id} task")
-        state = transition_workflow(root, change_id, WorkflowPhase.TASK)
-        if state.is_blocked:
-            return fail("transition task failed", state.findings, root)
-        ok(f"Phase recorded in .sdd/state.json → {state.phase.value}")
+        # ── Phase 6: auto --loop advances to verify, pauses ──────────
+        section(f"ssd-core auto {change_id} --loop  (advances to verify, cannot skip it)")
+        loop_steps = 0
+        while True:
+            r = _auto_advance(root, change_id)
+            if r.executed_command:
+                print(f"   → Executed: {r.executed_command}")
+                loop_steps += 1
+            if r.needs_human_work or r.step.is_complete or r.step.is_blocked or not r.executed_command:
+                break
+        print(f"   → phase: {r.step.phase.value} ({loop_steps} step(s) executed)")
+        if r.step.phase == WorkflowPhase.VERIFY:
+            print("   → Engine paused. Verification requires a real command.")
+            print(f"     Run: ssd-core verify {change_id} --command '<your-test-command>'")
 
-        # ── Step 6: verify with real command ──────────────────────────
-        step(6, f"ssd-core verify {change_id} --command 'echo all-tests-pass'")
-        findings = verify_change(root, change_id, ["echo all-tests-pass"])
+        # ── Phase 7: verify with real execution evidence ──────────────
+        section(f"ssd-core verify {change_id} --command 'echo tests-pass'")
+        print("   (captures stdout/stderr, SHA-256 checksums output log)")
+        findings = verify_change(root, change_id, ["echo tests-pass"])
         if findings:
             return fail("verify failed", findings, root)
-        ok("Command executed; output checksummed → .sdd/evidence/")
+        ok("Command executed; output stored → .sdd/evidence/<id>.log")
         ok("verification.md updated automatically → status: verified")
         ok("Phase recorded in .sdd/state.json → verify")
 
-        # ── Step 7: transition → archive → done ───────────────────────
-        step(7, f"ssd-core transition {change_id} archive  &&  ssd-core archive {change_id}")
-        state = transition_workflow(root, change_id, WorkflowPhase.ARCHIVE)
-        if state.is_blocked:
-            return fail("transition archive failed", state.findings, root)
-        ok(f"Phase recorded in .sdd/state.json → {state.phase.value}")
-
-        findings = archive_change(root, change_id)
-        if findings:
-            return fail("archive failed", findings, root)
-        archived = next(p for p in (root / ".sdd" / "archive").iterdir() if p.is_dir())
-        ok(f"Change closed → .sdd/archive/{archived.name}/")
-
-        # ── WorkflowEngine.next_step() bonus ──────────────────────────
-        print()
-        print("── WorkflowEngine.next_step() — single call for agent integrations:")
-        engine = WorkflowEngine(root)
-        engine_step = engine.next_step(change_id)
-        print(f"   phase:            {engine_step.phase.value}")
-        print(f"   is_complete:      {engine_step.is_complete}")
-        print(f"   is_blocked:       {engine_step.is_blocked}")
-        print(f"   allowed_commands: {engine_step.allowed_commands}")
+        # ── Phase 8: auto --loop closes the change ────────────────────
+        section(f"ssd-core auto {change_id} --loop  (engine closes the change)")
+        loop_steps = 0
+        while True:
+            r = _auto_advance(root, change_id)
+            if r.executed_command:
+                print(f"   → Executed: {r.executed_command}")
+                loop_steps += 1
+            if r.needs_human_work or r.step.is_complete or r.step.is_blocked or not r.executed_command:
+                break
+        if r.step.is_complete:
+            archived = next(p for p in (root / ".sdd" / "archive").iterdir() if p.is_dir())
+            ok(f"Change closed → .sdd/archive/{archived.name}/  ({loop_steps} step(s))")
+        else:
+            return fail("expected archived", r.step.findings, root)
 
         # ── Final: validate ───────────────────────────────────────────
-        print()
-        print("── ssd-core validate")
+        section("ssd-core validate  (full repository integrity check)")
         val_findings = [f for f in validate(root) if f.severity == "error"]
         if val_findings:
             return fail("validate failed", val_findings, root)
         ok("Repository governance passed — zero errors")
 
     print()
-    print("=" * 48)
+    print("=" * 52)
     print("Demo complete. Temp directory cleaned up.")
     print()
-    print("What just happened:")
-    print("  → Every phase transition was enforced by ALLOWED_TRANSITIONS")
-    print("  → Verification evidence was checksummed and stored under .sdd/evidence/")
-    print("  → state.json recorded the complete audit trail")
-    print("  → Archive required real evidence; fake completion would have been blocked")
+    print("What the engine prevented:")
+    print("  → Hallucinated completion — archive required checksummed evidence")
+    print("  → Phase skipping — ALLOWED_TRANSITIONS enforced every step")
+    print("  → Stale state — state.json required before gated commands ran")
+    print("  → Ungoverned commits — guard + install-hooks can enforce this in CI")
     print()
-    print("Next steps:")
+    print("Next:")
     print("  ssd-core init --root <your-repo>")
-    print("  ssd-core run my-change --profile standard --title 'My intent'")
+    print("  ssd-core auto <change-id> --loop")
     return 0
 
 
@@ -2766,9 +2800,8 @@ def _auto_advance(root: Path, change_id: str) -> "AutoStep":
     return AutoStep(executed_command=None, step=current_step())
 
 
-def print_auto(root: Path, change_id: str) -> int:
-    """Print the result of a single auto-advance step and return an exit code."""
-    result = _auto_advance(root, change_id)
+def _print_auto_step(root: Path, change_id: str, result: "AutoStep") -> int:
+    """Render a single AutoStep result to stdout. Returns exit code."""
     step = result.step
 
     if result.executed_command:
@@ -2791,7 +2824,6 @@ def print_auto(root: Path, change_id: str) -> int:
         return 1
 
     if step.phase == WorkflowPhase.VERIFY:
-        change_dir = change_directory(root, change_id)
         print(f"  {step.next_action}")
         print(f"  Run: ssd-core verify {change_id} --command '<your-test-command>'")
         return 0
@@ -2810,6 +2842,33 @@ def print_auto(root: Path, change_id: str) -> int:
     if step.suggested_command:
         print(f"  Run: {step.suggested_command}")
     return 0
+
+
+def print_auto(root: Path, change_id: str, *, loop: bool = False) -> int:
+    """Advance *change_id* and print the result.
+
+    When *loop* is False (default), executes one step and returns.
+    When *loop* is True, keeps advancing as long as the engine can execute
+    automatically, stopping at the first phase that requires human input,
+    at completion, or at a blocking finding.
+    """
+    if not loop:
+        return _print_auto_step(root, change_id, _auto_advance(root, change_id))
+
+    print(f"SSD-Core auto loop: {change_id}")
+    print("-" * 40)
+    steps_taken = 0
+    while True:
+        result = _auto_advance(root, change_id)
+        rc = _print_auto_step(root, change_id, result)
+        if result.executed_command:
+            steps_taken += 1
+        # Stop when blocked, complete, human work needed, or nothing executed.
+        if rc != 0 or result.step.is_complete or result.needs_human_work or not result.executed_command:
+            break
+    print("-" * 40)
+    print(f"Auto loop finished. {steps_taken} step(s) executed.")
+    return 0 if not result.step.is_blocked else 1
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -2832,9 +2891,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     auto_parser = subcommands.add_parser(
         "auto",
-        help="advance a change one step: execute what is ready, or guide on what file to edit",
+        help="advance a change: execute all ready steps, stop on human-work phases",
     )
     auto_parser.add_argument("change_id", help="kebab-case change identifier")
+    auto_parser.add_argument(
+        "--loop",
+        action="store_true",
+        help="drain all auto-executable steps in sequence; stop at the first phase requiring human input",
+    )
     auto_parser.add_argument(
         "--root",
         default=".",
@@ -3032,7 +3096,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "auto":
         root = Path(args.root).resolve()
-        return print_auto(root, args.change_id)
+        return print_auto(root, args.change_id, loop=args.loop)
 
     if args.command == "init":
         root = Path(args.root).resolve()

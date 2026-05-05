@@ -351,7 +351,7 @@ See:
 
 ## Current Status
 
-Current release: `v0.5.0`
+Current release: `v0.6.0`
 
 Solid in v0.3:
 

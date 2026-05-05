@@ -1,23 +1,44 @@
 # SSD-Core
 
-Spec-driven development for any agent, on any operating system.
+Governance anti-hallucination for AI-assisted software teams.
 
-SSD-Core is a portable workflow layer for teams using coding agents. It keeps intent, decisions, and evidence in repository artifacts instead of fragile chat memory.
+SSD-Core turns agent work into a governed development trail: intent, specs, design, tasks, verification, critique, and archive. The point is simple: agents can move fast, but production code needs evidence.
 
 ```text
-Intent -> Spec -> Design -> Tasks -> Verification -> Archive
+Idea -> Spec -> Design -> Tasks -> Verified Change -> Living Specs -> Archive
 ```
 
-No lock-in. No hidden state. No runtime-specific source of truth.
+Use SSD-Core when you want AI-generated work to be reviewable, repeatable, and hard to fake.
 
-## Start Here
+## Why It Exists
 
-Choose your path:
+AI coding agents are excellent at producing code. They are much weaker at preserving intent, proving behavior, and remembering why a decision was made after the chat scrolls away.
 
-- New to SSD-Core: go to [5-Minute Path](#5-minute-path)
-- Running SSD-Core in a team: go to [Team Path](#team-path)
+SSD-Core gives teams a repository-native control layer:
 
-## 5-Minute Path
+- the agent must write down the change before implementing it
+- tasks must map back to specs
+- verification evidence must exist before archive
+- living specs are updated after behavior changes
+- adapter-specific runtime details stay outside the protocol core
+
+This is not a bigger prompt. It is a small governance system for agentic development.
+
+## What You Get Immediately
+
+After install, any repository can get:
+
+- `.sdd/` protocol artifacts for specs, changes, profiles, adapters, agents, and skills
+- a CLI that initializes, validates, opens, checks, syncs, and archives SDD changes
+- concrete adapter manifests for Codex, Claude Code, Gemini CLI, OpenCode, and Qwen Code
+- six rigor profiles: `quick`, `standard`, `bugfix`, `refactor`, `enterprise`, and `research`
+- a release gate that runs on Windows, Linux, and macOS
+
+No agent lock-in. No operating-system lock-in. No hidden state as the source of truth.
+
+## Golden Path: Guard A Login Change
+
+This is the “I need this to work today” path.
 
 ### 1) Install
 
@@ -47,38 +68,104 @@ npm install -g .
 
 The npm package delegates to the same Python core and requires Python 3.11+ on `PATH`.
 
-### 2) Verify CLI
+### 2) Initialize Your Repository
 
 ```text
-ssd-core version
+ssd-core init --root my-app
+ssd-core validate --root my-app
 ```
 
-### 3) Initialize SDD-Core in a repository
+Result:
 
 ```text
-ssd-core init --root path-to-repository
+my-app/.sdd/
+  adapters/
+  agents/
+  changes/
+  profiles/
+  schemas/
+  skills/
+  specs/
 ```
 
-### 4) Validate baseline
+### 3) Open A Governed Change
 
 ```text
-ssd-core validate --root path-to-repository
+ssd-core new harden-login-rate-limit --profile standard --title "Harden login rate limits" --root my-app
 ```
 
-### 5) Open your first change
+Result:
 
 ```text
-ssd-core new add-search --profile standard --title "Add search" --root path-to-repository
+my-app/.sdd/changes/harden-login-rate-limit/
+  proposal.md
+  delta-spec.md
+  design.md
+  tasks.md
+  verification.md
+  archive.md
 ```
 
-### 6) Track and close
+### 4) Give The Agent A Real Contract
+
+Instead of “fix login security”, point the agent at the change folder:
 
 ```text
-ssd-core status --root path-to-repository
-ssd-core check add-search --root path-to-repository
-ssd-core sync-specs add-search --root path-to-repository
-ssd-core archive add-search --root path-to-repository
+Implement .sdd/changes/harden-login-rate-limit.
+Do not archive until verification.md contains passing evidence.
+Update living specs with ssd-core sync-specs before archive.
 ```
+
+The agent now has a repository contract, not just a chat instruction.
+
+### 5) Block Fake Completion
+
+```text
+ssd-core check harden-login-rate-limit --root my-app
+```
+
+If tasks are incomplete or verification is missing, the change cannot close cleanly.
+
+### 6) Sync And Archive
+
+```text
+ssd-core sync-specs harden-login-rate-limit --root my-app
+ssd-core archive harden-login-rate-limit --root my-app
+ssd-core validate --root my-app
+```
+
+Outcome: the code change, specs, verification evidence, and archive record all stay in the repo.
+
+## Why SSD-Core Instead Of Another SDD Template
+
+SSD-Core is optimized for governance over convenience.
+
+| Need | SSD-Core position |
+| --- | --- |
+| Avoid hallucinated completion | Verification evidence is a first-class artifact. |
+| Keep agents interchangeable | Runtime behavior belongs in adapters, not the core. |
+| Support teams and audits | Decisions, specs, and archive records live in git. |
+| Scale rigor by risk | Profiles define how much ceremony a change needs. |
+| Stay portable | The protocol avoids OS, shell, IDE, and agent assumptions. |
+
+Use SSD-Core when correctness and traceability matter more than a flashy one-command demo.
+
+## When To Use It
+
+Use SSD-Core for:
+
+- teams shipping agent-assisted code to production
+- multi-agent workflows that need shared ground truth
+- risky changes where “the agent said it passed” is not enough
+- projects that need auditable specs and verification history
+- orgs evaluating multiple coding agents without rewriting workflow rules
+
+Do not use SSD-Core for:
+
+- throwaway prototypes
+- solo scripts where chat history is enough
+- teams that do not want specs, tasks, or verification gates
+- projects looking for an agent runtime instead of a protocol layer
 
 ## Team Path
 
@@ -86,60 +173,35 @@ If you are adopting SSD-Core across a team, focus on these in order:
 
 1. Read the protocol baseline: [docs/sdd-core-protocol-v0.1.md](docs/sdd-core-protocol-v0.1.md)
 2. Align adapter boundaries: [docs/adapter-contract-v0.1.md](docs/adapter-contract-v0.1.md)
-3. Select profile defaults (`quick`, `standard`, `bugfix`, `refactor`, `enterprise`, `research`)
-4. Enforce release gate in CI with `python scripts/release_check.py`
-5. Require verification evidence before archive
-
-## What SSD-Core Adds
-
-SSD-Core is not another agent runtime. It adds a stable repository contract:
-
-- `.sdd/specs/` for living behavior
-- `.sdd/changes/<change-id>/` for active deltas
-- `.sdd/archive/` for completed changes
-- profile-driven rigor without forcing heavy ceremony
-- evidence-gated completion criteria
-
-## Repository Layout
-
-```text
-.sdd/
-  adapters/
-  agents/
-  constitution.md
-  examples/
-  protocol.md
-  profiles/
-  schemas/
-  skills/
-  specs/
-  changes/
-  archive/
-
-docs/
-  sdd-core-protocol-v0.1.md
-  adapter-contract-v0.1.md
-  adapter-authoring-v0.1.md
-  sdd-validator-v0.1.md
-```
+3. Pick default profiles for change types
+4. Require `ssd-core check` before merge or archive
+5. Run `python scripts/release_check.py` in CI for SSD-Core itself
 
 ## Command Guide
 
 ```text
 ssd-core version
-ssd-core validate
 ssd-core init --root <path>
-ssd-core status
-ssd-core new <change-id> --profile <profile> --title "Human intent"
-ssd-core check <change-id>
-ssd-core sync-specs <change-id>
-ssd-core archive <change-id>
+ssd-core validate --root <path>
+ssd-core status --root <path>
+ssd-core new <change-id> --profile <profile> --title "Human intent" --root <path>
+ssd-core check <change-id> --root <path>
+ssd-core sync-specs <change-id> --root <path>
+ssd-core archive <change-id> --root <path>
 ```
 
-## Lifecycle
+## Repository Contract
 
 ```text
-explore -> propose -> specify -> design -> task -> implement -> verify -> critique -> archive
+.sdd/
+  adapters/      agent/runtime capability manifests
+  agents/        portable role contracts
+  archive/       completed change records
+  changes/       active governed changes
+  profiles/      rigor levels by change type
+  schemas/       metadata and evidence schemas
+  skills/        portable workflow capabilities
+  specs/         living behavior specs
 ```
 
 Core rule: no archive without verification evidence.
@@ -148,26 +210,22 @@ Core rule: no archive without verification evidence.
 
 SSD-Core ships six profiles:
 
-- `quick`
-- `standard`
-- `bugfix`
-- `refactor`
-- `enterprise`
-- `research`
+- `quick`: low-risk, obvious implementation path
+- `standard`: default feature/change flow
+- `bugfix`: regression-first repair flow
+- `refactor`: behavior lock before cleanup
+- `enterprise`: higher governance and approval weight
+- `research`: evidence-first investigation flow
 
 Use the smallest safe profile for the change type.
 
 ## Adapters
 
-### Reference Adapter
-
 The generic baseline is:
 
 - `.sdd/adapters/generic-markdown.json`
 
-Use it as the portable contract for any human or tool workflow that can read/write repo artifacts.
-
-### Concrete Capability Manifests Included in v0.1
+Concrete capability manifests included in v0.1:
 
 - Codex: `.sdd/adapters/codex.json`
 - Claude Code: `.sdd/adapters/claude-code.json`
@@ -188,7 +246,7 @@ See [docs/adapters-v0.1.md](docs/adapters-v0.1.md) and [docs/adapter-authoring-v
 - GRASP: place responsibilities where knowledge already lives
 - LoD: minimize coupling to immediate collaborators
 
-Plus SSD-Core specifics:
+SSD-Core specifics:
 
 - keep the core small
 - push runtime specifics into adapters
@@ -219,7 +277,7 @@ See:
 
 ## Current Status
 
-Current release: `v0.1.0`
+Current release: `v0.1.3`
 
 Solid in v0.1:
 
@@ -228,6 +286,7 @@ Solid in v0.1:
 - dependency-free reference CLI
 - packaged templates and docs
 - cross-platform release check and CI
+- npm package published as `ssd-core`
 
 Deferred to future versions:
 
@@ -235,6 +294,7 @@ Deferred to future versions:
 - semantic living spec merge
 - executable runtime command wrappers for adapters
 - richer profile templates
+- a full demo repository with real application code
 
 ## Influences And Attribution
 

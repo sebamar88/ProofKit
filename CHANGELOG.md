@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.3 - 2026-05-05
+
+- Repositioned the README around governance anti-hallucination for production agent workflows.
+- Added a Golden Path that shows a concrete login hardening change from init to archive.
+- Clarified when to use SSD-Core, when not to use it, and how it differs from generic SDD templates.
+
 ## 0.1.2 - 2026-05-05
 
 - Updated install instructions for the published npm package, including global install and one-shot `npx` usage.

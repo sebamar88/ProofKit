@@ -8,8 +8,10 @@ from .cli import (
     WorkflowPhase,
     WorkflowResult,
     WorkflowState,
+    declared_workflow_phase,
     guard_repository,
     install_hooks,
+    transition_workflow,
 )
 
 __all__ = [
@@ -20,6 +22,8 @@ __all__ = [
     "WorkflowPhase",
     "WorkflowResult",
     "WorkflowState",
+    "declared_workflow_phase",
     "guard_repository",
     "install_hooks",
+    "transition_workflow",
 ]

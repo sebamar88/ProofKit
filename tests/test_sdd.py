@@ -21,8 +21,24 @@ class SddToolingTests(unittest.TestCase):
     def finding_messages(findings: list[sdd.Finding]) -> list[str]:
         return [finding.message for finding in findings]
 
+    def record_transition(self, root: Path, change_id: str, phase: sdd.WorkflowPhase) -> None:
+        state = sdd.transition_workflow(root, change_id, phase)
+        self.assertFalse(state.is_blocked, self.finding_messages(state.findings))
+        self.assertEqual(state.phase, phase)
+
+    def record_standard_ready_transitions(self, root: Path, change_id: str) -> None:
+        for phase in [
+            sdd.WorkflowPhase.SPECIFY,
+            sdd.WorkflowPhase.DESIGN,
+            sdd.WorkflowPhase.TASK,
+            sdd.WorkflowPhase.VERIFY,
+            sdd.WorkflowPhase.ARCHIVE_RECORD,
+            sdd.WorkflowPhase.SYNC_SPECS,
+        ]:
+            self.record_transition(root, change_id, phase)
+
     def test_version_is_defined(self) -> None:
-        self.assertEqual(sdd.VERSION, "0.1.6")
+        self.assertEqual(sdd.VERSION, "0.1.7")
 
     def test_distribution_versions_match(self) -> None:
         pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -35,6 +51,7 @@ class SddToolingTests(unittest.TestCase):
         template_root = files("ssd_core").joinpath("templates")
 
         self.assertTrue(template_root.joinpath("sdd", "constitution.md").is_file())
+        self.assertTrue(template_root.joinpath("sdd", "state.json").is_file())
         self.assertTrue(template_root.joinpath("sdd", "adapters", "generic-markdown.json").is_file())
         self.assertTrue(template_root.joinpath("sdd", "adapters", "codex.json").is_file())
         self.assertTrue(template_root.joinpath("sdd", "adapters", "claude-code.json").is_file())
@@ -111,6 +128,7 @@ class SddToolingTests(unittest.TestCase):
 
         self.assertEqual(findings, [])
         self.assertTrue((root / ".sdd" / "constitution.md").is_file())
+        self.assertTrue((root / ".sdd" / "state.json").is_file())
         self.assertTrue((root / ".sdd" / "adapters" / "generic-markdown.json").is_file())
         self.assertEqual(sdd.validate(root), [])
 
@@ -224,7 +242,7 @@ class SddToolingTests(unittest.TestCase):
 
         self.assertEqual(len(findings), 1)
         self.assertEqual(findings[0].severity, "error")
-        self.assertIn("change does not exist", findings[0].message)
+        self.assertIn("workflow phase must be recorded", findings[0].message)
 
     def test_strip_frontmatter_text_removes_frontmatter(self) -> None:
         text = "---\nschema: sdd.artifact.v1\n---\n\n# Body\n"
@@ -255,6 +273,7 @@ class SddToolingTests(unittest.TestCase):
         verification_path.write_text(verification_text, encoding="utf-8")
 
         self.assertEqual(sdd.check_change(root, change_id), [])
+        self.record_standard_ready_transitions(root, change_id)
 
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(sdd.sync_specs(root, change_id), [])
@@ -288,9 +307,10 @@ class SddToolingTests(unittest.TestCase):
         verification_text = verification_text.replace("not-run", "pass")
         verification_path.write_text(verification_text, encoding="utf-8")
 
+        self.record_standard_ready_transitions(root, change_id)
         findings = sdd.archive_change(root, change_id)
         self.assertEqual(len(findings), 1)
-        self.assertIn("living spec must be synced before archive", findings[0].message)
+        self.assertIn("workflow phase must be archive", findings[0].message)
 
     def test_run_workflow_creates_missing_change_and_reports_propose_phase(self) -> None:
         root = REPO_ROOT / ".tmp-tests" / f"workflow-create-{uuid.uuid4().hex}"
@@ -303,6 +323,51 @@ class SddToolingTests(unittest.TestCase):
         self.assertEqual(state.profile, "standard")
         self.assertEqual(state.findings, [])
         self.assertTrue((root / ".sdd" / "changes" / "guard-login" / "proposal.md").is_file())
+        self.assertEqual(sdd.declared_workflow_phase(root, "guard-login"), sdd.WorkflowPhase.PROPOSE)
+
+    def test_transition_blocks_phase_when_artifacts_do_not_support_it(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"transition-block-{uuid.uuid4().hex}"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            state = sdd.run_workflow(root, "guard-login", "standard", "Guard login", create=True)
+
+        self.assertEqual(state.phase, sdd.WorkflowPhase.PROPOSE)
+        blocked = sdd.transition_workflow(root, "guard-login", sdd.WorkflowPhase.DESIGN)
+        self.assertTrue(blocked.is_blocked)
+        self.assertTrue(any("invalid workflow transition" in finding.message for finding in blocked.findings))
+
+    def test_transition_records_next_phase_after_artifact_readiness(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"transition-ready-{uuid.uuid4().hex}"
+        change_id = "guard-login"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            self.assertEqual(sdd.run_workflow(root, change_id, "standard", "Guard login", create=True).phase, sdd.WorkflowPhase.PROPOSE)
+
+        proposal_path = root / ".sdd" / "changes" / change_id / "proposal.md"
+        proposal_path.write_text(proposal_path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
+
+        transitioned = sdd.transition_workflow(root, change_id, sdd.WorkflowPhase.SPECIFY)
+        self.assertFalse(transitioned.is_blocked, self.finding_messages(transitioned.findings))
+        self.assertEqual(sdd.declared_workflow_phase(root, change_id), sdd.WorkflowPhase.SPECIFY)
+
+    def test_guard_strict_state_detects_unrecorded_artifact_mutation(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"strict-state-{uuid.uuid4().hex}"
+        change_id = "guard-login"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            self.assertEqual(sdd.run_workflow(root, change_id, "standard", "Guard login", create=True).phase, sdd.WorkflowPhase.PROPOSE)
+
+        proposal_path = root / ".sdd" / "changes" / change_id / "proposal.md"
+        proposal_path.write_text(proposal_path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
+
+        findings = sdd.guard_repository(root, require_active_change=True, strict_state=True)
+        self.assertTrue(any("workflow state checksum is stale" in finding.message for finding in findings))
+
+        self.record_transition(root, change_id, sdd.WorkflowPhase.SPECIFY)
+        self.assertEqual(sdd.guard_repository(root, require_active_change=True, strict_state=True), [])
 
     def test_workflow_state_enforces_phase_order_before_spec_sync(self) -> None:
         root = REPO_ROOT / ".tmp-tests" / f"workflow-order-{uuid.uuid4().hex}"
@@ -334,6 +399,7 @@ class SddToolingTests(unittest.TestCase):
         verification_path.write_text(verification_text, encoding="utf-8")
 
         self.assertEqual(sdd.workflow_state(root, change_id).phase, sdd.WorkflowPhase.SYNC_SPECS)
+        self.record_standard_ready_transitions(root, change_id)
 
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(sdd.sync_specs(root, change_id), [])
@@ -383,6 +449,8 @@ class SddToolingTests(unittest.TestCase):
         self.assertIs(ssd_core.WorkflowFailureKind, sdd.WorkflowFailureKind)
         self.assertIs(ssd_core.guard_repository, sdd.guard_repository)
         self.assertIs(ssd_core.install_hooks, sdd.install_hooks)
+        self.assertIs(ssd_core.transition_workflow, sdd.transition_workflow)
+        self.assertIs(ssd_core.declared_workflow_phase, sdd.declared_workflow_phase)
 
     def test_sdd_workflow_blocks_sync_before_required_phase(self) -> None:
         root = REPO_ROOT / ".tmp-tests" / f"workflow-api-block-{uuid.uuid4().hex}"
@@ -401,6 +469,15 @@ class SddToolingTests(unittest.TestCase):
         self.assertEqual(blocked.state.phase, sdd.WorkflowPhase.BLOCKED)
         self.assertEqual(blocked.failures[0].kind, sdd.WorkflowFailureKind.PHASE_ORDER)
         self.assertIn("workflow phase must be sync-specs", blocked.failures[0].message)
+
+    def test_sdd_workflow_transition_rejects_unknown_phase(self) -> None:
+        workflow = sdd.SDDWorkflow(REPO_ROOT)
+
+        result = workflow.transition("guard-login", "made-up")
+
+        self.assertFalse(result.ok)
+        self.assertEqual(result.state.phase, sdd.WorkflowPhase.BLOCKED)
+        self.assertIn("unknown workflow phase", result.failures[0].message)
 
     def test_sdd_workflow_orchestrates_sync_and_archive_when_ready(self) -> None:
         root = REPO_ROOT / ".tmp-tests" / f"workflow-api-e2e-{uuid.uuid4().hex}"
@@ -427,6 +504,17 @@ class SddToolingTests(unittest.TestCase):
         verification_text = verification_text.replace("pending verification evidence", "unit test evidence")
         verification_text = verification_text.replace("not-run", "pass")
         verification_path.write_text(verification_text, encoding="utf-8")
+
+        for phase in [
+            sdd.WorkflowPhase.SPECIFY,
+            sdd.WorkflowPhase.DESIGN,
+            sdd.WorkflowPhase.TASK,
+            sdd.WorkflowPhase.VERIFY,
+            sdd.WorkflowPhase.ARCHIVE_RECORD,
+            sdd.WorkflowPhase.SYNC_SPECS,
+        ]:
+            transition = workflow.transition(change_id, phase)
+            self.assertTrue(transition.ok, [failure.message for failure in transition.failures])
 
         with contextlib.redirect_stdout(io.StringIO()):
             synced = workflow.sync_specs(change_id)
@@ -501,6 +589,7 @@ class SddToolingTests(unittest.TestCase):
         hook_text = hook_path.read_text(encoding="utf-8")
         self.assertIn("ssd-core guard", hook_text)
         self.assertIn("--require-active-change", hook_text)
+        self.assertIn("--strict-state", hook_text)
 
 
 if __name__ == "__main__":

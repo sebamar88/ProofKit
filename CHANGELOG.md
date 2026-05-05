@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.1.7 - 2026-05-05
+
+- Added `.sdd/state.json` as the explicit workflow registry for declared phases, transition history, and artifact checksums.
+- Added `ssd-core transition` and `SDDWorkflow.transition()` to enforce state-machine phase moves instead of trusting inferred Markdown state alone.
+- Hardened `sync-specs` and `archive` so they require recorded workflow phases before running.
+- Added `guard --strict-state` and upgraded installed pre-commit hooks to block stale artifact checksums and unrecorded active changes.
+- Extended release checks to smoke-test strict guard enforcement from wheel and npm wrapper installs.
+
 ## 0.1.6 - 2026-05-05
 
 - Added `ssd-core guard` for CI and hook enforcement of repository governance.

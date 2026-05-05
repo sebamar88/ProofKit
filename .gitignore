@@ -7,9 +7,11 @@ __pycache__/
 .tmp-install/
 .tmp-venv*/
 .tmp-uv*/
+.tmp-pip-tmp/
 .tmp-prod-smoke*/
 .tmp-wheel/
 .tmp-release-check/
+.tmp-release-check-uv-cache/
 .tmp-npm*/
 .tmp-workflow*/
 node_modules/

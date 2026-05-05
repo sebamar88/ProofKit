@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -13,7 +14,7 @@ from pathlib import Path
 from typing import Iterable, Protocol
 
 
-VERSION = "0.1.6"
+VERSION = "0.1.7"
 
 REQUIRED_DIRECTORIES = [
     ".sdd",
@@ -106,6 +107,7 @@ FOUNDATION_COPY_DIRECTORIES = [
 FOUNDATION_COPY_FILES = [
     "constitution.md",
     "protocol.md",
+    "state.json",
 ]
 
 FOUNDATION_DOC_FILES = [
@@ -195,6 +197,37 @@ class WorkflowPhase(str, Enum):
     ARCHIVE = "archive"
     ARCHIVED = "archived"
     BLOCKED = "blocked"
+
+
+WORKFLOW_STATE_SCHEMA = "sdd.state.v1"
+
+PHASE_ORDER = {
+    WorkflowPhase.NOT_STARTED: 0,
+    WorkflowPhase.PROPOSE: 10,
+    WorkflowPhase.SPECIFY: 20,
+    WorkflowPhase.DESIGN: 30,
+    WorkflowPhase.TASK: 40,
+    WorkflowPhase.VERIFY: 50,
+    WorkflowPhase.CRITIQUE: 60,
+    WorkflowPhase.ARCHIVE_RECORD: 70,
+    WorkflowPhase.SYNC_SPECS: 80,
+    WorkflowPhase.ARCHIVE: 90,
+    WorkflowPhase.ARCHIVED: 100,
+}
+
+ALLOWED_TRANSITIONS = {
+    WorkflowPhase.NOT_STARTED: {WorkflowPhase.PROPOSE},
+    WorkflowPhase.PROPOSE: {WorkflowPhase.SPECIFY, WorkflowPhase.TASK},
+    WorkflowPhase.SPECIFY: {WorkflowPhase.DESIGN, WorkflowPhase.TASK},
+    WorkflowPhase.DESIGN: {WorkflowPhase.TASK},
+    WorkflowPhase.TASK: {WorkflowPhase.VERIFY},
+    WorkflowPhase.VERIFY: {WorkflowPhase.CRITIQUE, WorkflowPhase.ARCHIVE_RECORD, WorkflowPhase.SYNC_SPECS, WorkflowPhase.ARCHIVE},
+    WorkflowPhase.CRITIQUE: {WorkflowPhase.ARCHIVE_RECORD, WorkflowPhase.SYNC_SPECS, WorkflowPhase.ARCHIVE},
+    WorkflowPhase.ARCHIVE_RECORD: {WorkflowPhase.SYNC_SPECS, WorkflowPhase.ARCHIVE},
+    WorkflowPhase.SYNC_SPECS: {WorkflowPhase.ARCHIVE},
+    WorkflowPhase.ARCHIVE: {WorkflowPhase.ARCHIVED},
+    WorkflowPhase.ARCHIVED: set(),
+}
 
 
 class WorkflowFailureKind(str, Enum):
@@ -453,7 +486,7 @@ def validate_required_directories(root: Path) -> list[Finding]:
 
 def validate_required_files(root: Path) -> list[Finding]:
     findings: list[Finding] = []
-    for required_file in [".sdd/protocol.md", ".sdd/constitution.md"]:
+    for required_file in [".sdd/protocol.md", ".sdd/constitution.md", ".sdd/state.json"]:
         path = logical_path(root, required_file)
         if not path.is_file():
             findings.append(Finding("error", path, "required file is missing"))
@@ -841,11 +874,16 @@ def validate_spec_sync(root: Path, change_dir: Path, change_id: str) -> list[Fin
 
 
 def archive_change(root: Path, change_id: str) -> list[Finding]:
+    findings = require_recorded_phase(root, change_id, WorkflowPhase.ARCHIVE)
+    if findings:
+        return findings
+
     findings = check_change(root, change_id)
     if findings:
         return findings
 
     source = change_directory(root, change_id)
+    summary = summarize_change(source)
     spec_findings = validate_spec_sync(root, source, change_id)
     if spec_findings:
         return spec_findings
@@ -865,6 +903,11 @@ def archive_change(root: Path, change_id: str) -> list[Finding]:
 
     shutil.copytree(source_resolved, destination)
     shutil.rmtree(source_resolved)
+    record_workflow_state(
+        root,
+        WorkflowState(change_id, WorkflowPhase.ARCHIVED, summary.profile, f"Review archived evidence at {destination.as_posix()}.", []),
+        "archive",
+    )
     print(f"Archived change: {destination.as_posix()}")
     return []
 
@@ -890,6 +933,10 @@ def append_sync_record(archive_path: Path, spec_path: Path, root: Path) -> None:
 
 
 def sync_specs(root: Path, change_id: str) -> list[Finding]:
+    findings = require_recorded_phase(root, change_id, WorkflowPhase.SYNC_SPECS)
+    if findings:
+        return findings
+
     findings = check_change(root, change_id)
     if findings:
         return findings
@@ -925,6 +972,7 @@ def sync_specs(root: Path, change_id: str) -> list[Finding]:
     if archive_path.is_file():
         append_sync_record(archive_path, spec_path, root)
 
+    record_workflow_state(root, workflow_state(root, change_id), "sync-specs")
     print(f"Synced living spec: {spec_path.as_posix()}")
     return []
 
@@ -942,6 +990,287 @@ def archived_change_id(archive_dir: Path) -> str:
     if match:
         return match.group("change_id")
     return archive_dir.name
+
+
+def workflow_registry_path(root: Path) -> Path:
+    return root / ".sdd" / "state.json"
+
+
+def empty_workflow_registry() -> dict[str, object]:
+    return {
+        "schema": WORKFLOW_STATE_SCHEMA,
+        "updated": date.today().isoformat(),
+        "changes": {},
+    }
+
+
+def read_workflow_registry(root: Path) -> tuple[dict[str, object], list[Finding]]:
+    path = workflow_registry_path(root)
+    if not path.is_file():
+        return empty_workflow_registry(), [Finding("error", path, "workflow state registry is missing")]
+
+    try:
+        registry = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return empty_workflow_registry(), [Finding("error", path, f"invalid workflow state JSON: {exc.msg} at line {exc.lineno}")]
+
+    if not isinstance(registry, dict):
+        return empty_workflow_registry(), [Finding("error", path, "workflow state registry must be a JSON object")]
+    if registry.get("schema") != WORKFLOW_STATE_SCHEMA:
+        return registry, [Finding("error", path, f"workflow state schema must be {WORKFLOW_STATE_SCHEMA}")]
+    if not isinstance(registry.get("changes"), dict):
+        return registry, [Finding("error", path, "workflow state changes must be a JSON object")]
+    return registry, []
+
+
+def write_workflow_registry(root: Path, registry: dict[str, object]) -> None:
+    path = workflow_registry_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    registry["schema"] = WORKFLOW_STATE_SCHEMA
+    registry["updated"] = date.today().isoformat()
+    if not isinstance(registry.get("changes"), dict):
+        registry["changes"] = {}
+    path.write_text(json.dumps(registry, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def change_location(root: Path, change_id: str) -> Path | None:
+    active_dir = change_directory(root, change_id)
+    if active_dir.is_dir():
+        return active_dir
+    return archived_change_directory(root, change_id)
+
+
+def artifact_checksum(change_dir: Path) -> str:
+    digest = hashlib.sha256()
+    if not change_dir.is_dir():
+        return ""
+    for path in sorted(path for path in change_dir.rglob("*") if path.is_file()):
+        relative = path.relative_to(change_dir).as_posix()
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def registry_changes(registry: dict[str, object]) -> dict[str, object]:
+    changes = registry.get("changes")
+    if isinstance(changes, dict):
+        return changes
+    registry["changes"] = {}
+    return registry["changes"]  # type: ignore[return-value]
+
+
+def state_entry(registry: dict[str, object], change_id: str) -> dict[str, object] | None:
+    entry = registry_changes(registry).get(change_id)
+    return entry if isinstance(entry, dict) else None
+
+
+def record_workflow_state(root: Path, state: WorkflowState, action: str) -> None:
+    if state.phase in {WorkflowPhase.NOT_STARTED, WorkflowPhase.BLOCKED}:
+        return
+
+    registry, _ = read_workflow_registry(root)
+    changes = registry_changes(registry)
+    existing = state_entry(registry, state.change_id) or {}
+    history = existing.get("history")
+    if not isinstance(history, list):
+        history = []
+
+    today = date.today().isoformat()
+    location = change_location(root, state.change_id)
+    checksum = artifact_checksum(location) if location is not None else ""
+    history.append(
+        {
+            "phase": state.phase.value,
+            "action": action,
+            "at": today,
+            "checksum": checksum,
+        }
+    )
+    changes[state.change_id] = {
+        "phase": state.phase.value,
+        "profile": state.profile,
+        "updated": today,
+        "checksum": checksum,
+        "history": history[-25:],
+    }
+    write_workflow_registry(root, registry)
+
+
+def declared_workflow_phase(root: Path, change_id: str) -> WorkflowPhase | None:
+    registry, findings = read_workflow_registry(root)
+    if findings:
+        return None
+    entry = state_entry(registry, change_id)
+    if entry is None:
+        return None
+    phase = entry.get("phase")
+    try:
+        return WorkflowPhase(str(phase))
+    except ValueError:
+        return None
+
+
+def phase_is_supported(target: WorkflowPhase, inferred: WorkflowPhase) -> bool:
+    return PHASE_ORDER[target] <= PHASE_ORDER[inferred]
+
+
+def transition_workflow(root: Path, change_id: str, target_phase: WorkflowPhase) -> WorkflowState:
+    findings = validate_change_id(change_id)
+    if findings:
+        return WorkflowState(change_id, WorkflowPhase.BLOCKED, "unknown", "Use a kebab-case change id.", findings)
+    if target_phase in {WorkflowPhase.NOT_STARTED, WorkflowPhase.BLOCKED}:
+        return WorkflowState(
+            change_id,
+            WorkflowPhase.BLOCKED,
+            "unknown",
+            "Choose an active workflow phase.",
+            [Finding("error", None, f"cannot transition to {target_phase.value}")],
+        )
+
+    inferred = workflow_state(root, change_id)
+    if inferred.is_blocked:
+        return inferred
+
+    current = declared_workflow_phase(root, change_id)
+    if current is None:
+        current = WorkflowPhase.NOT_STARTED if inferred.phase != WorkflowPhase.ARCHIVED else WorkflowPhase.ARCHIVE
+
+    allowed = ALLOWED_TRANSITIONS.get(current, set())
+    if target_phase not in allowed:
+        return WorkflowState(
+            change_id,
+            WorkflowPhase.BLOCKED,
+            inferred.profile,
+            inferred.next_action,
+            [
+                Finding(
+                    "error",
+                    change_location(root, change_id),
+                    f"invalid workflow transition: {current.value} -> {target_phase.value}",
+                )
+            ],
+        )
+
+    if not phase_is_supported(target_phase, inferred.phase):
+        return WorkflowState(
+            change_id,
+            WorkflowPhase.BLOCKED,
+            inferred.profile,
+            inferred.next_action,
+            [
+                Finding(
+                    "error",
+                    change_location(root, change_id),
+                    f"artifacts do not support transition to {target_phase.value}; inferred phase is {inferred.phase.value}",
+                )
+            ],
+        )
+
+    transitioned = WorkflowState(change_id, target_phase, inferred.profile, inferred.next_action, [])
+    record_workflow_state(root, transitioned, "transition")
+    return transitioned
+
+
+def require_recorded_phase(root: Path, change_id: str, expected: WorkflowPhase) -> list[Finding]:
+    findings = validate_change_id(change_id)
+    if findings:
+        return findings
+
+    registry, findings = read_workflow_registry(root)
+    if findings:
+        return findings
+
+    entry = state_entry(registry, change_id)
+    if entry is None:
+        return [
+            Finding(
+                "error",
+                change_location(root, change_id) or workflow_registry_path(root),
+                f"workflow phase must be recorded before running this command; run `ssd-core transition {change_id} {expected.value}`",
+            )
+        ]
+
+    try:
+        declared = WorkflowPhase(str(entry.get("phase")))
+    except ValueError:
+        return [Finding("error", workflow_registry_path(root), f"workflow state phase is invalid for {change_id}: {entry.get('phase')}")]
+
+    if declared != expected:
+        return [
+            Finding(
+                "error",
+                change_location(root, change_id) or workflow_registry_path(root),
+                f"workflow phase must be {expected.value}; recorded phase is {declared.value}",
+            )
+        ]
+    return []
+
+
+def validate_workflow_registry(root: Path, *, strict_state: bool = False) -> list[Finding]:
+    registry, findings = read_workflow_registry(root)
+    if findings:
+        return findings
+
+    changes = registry_changes(registry)
+    for change_id, raw_entry in changes.items():
+        path = workflow_registry_path(root)
+        if not isinstance(change_id, str) or validate_change_id(change_id):
+            findings.append(Finding("error", path, f"workflow state change id is invalid: {change_id}"))
+            continue
+        if not isinstance(raw_entry, dict):
+            findings.append(Finding("error", path, f"workflow state entry must be an object: {change_id}"))
+            continue
+
+        raw_phase = raw_entry.get("phase")
+        try:
+            declared = WorkflowPhase(str(raw_phase))
+        except ValueError:
+            findings.append(Finding("error", path, f"workflow state phase is invalid for {change_id}: {raw_phase}"))
+            continue
+
+        inferred = workflow_state(root, change_id)
+        if inferred.phase == WorkflowPhase.NOT_STARTED:
+            findings.append(Finding("error", path, f"workflow state references missing change: {change_id}"))
+            continue
+        if inferred.is_blocked:
+            findings.extend(inferred.findings)
+            continue
+        if PHASE_ORDER[declared] > PHASE_ORDER[inferred.phase]:
+            findings.append(
+                Finding(
+                    "error",
+                    change_location(root, change_id),
+                    f"declared phase {declared.value} is ahead of inferred phase {inferred.phase.value}",
+                )
+            )
+
+        if strict_state:
+            location = change_location(root, change_id)
+            current_checksum = artifact_checksum(location) if location is not None else ""
+            if raw_entry.get("checksum") != current_checksum:
+                findings.append(
+                    Finding(
+                        "error",
+                        location or path,
+                        f"workflow state checksum is stale for {change_id}; run `ssd-core transition {change_id} <phase>` after intentional artifact changes",
+                    )
+                )
+
+    if strict_state:
+        tracked_changes = {str(change_id) for change_id in changes}
+        for change_dir in active_change_directories(root):
+            if change_dir.name not in tracked_changes:
+                findings.append(
+                    Finding(
+                        "error",
+                        change_dir,
+                        f"active change is not recorded in .sdd/state.json: {change_dir.name}",
+                    )
+                )
+
+    return findings
 
 
 def artifact_status(change_dir: Path, filename: str) -> tuple[str, Finding | None]:
@@ -1077,6 +1406,7 @@ def run_workflow(root: Path, change_id: str, profile: str, title: str | None, *,
 
     state = workflow_state(root, change_id)
     if state.phase != WorkflowPhase.NOT_STARTED or not create:
+        record_workflow_state(root, state, "run")
         return state
 
     create_findings = create_change(root, change_id, profile, title)
@@ -1088,7 +1418,9 @@ def run_workflow(root: Path, change_id: str, profile: str, title: str | None, *,
             "Fix change creation findings before continuing.",
             create_findings,
         )
-    return workflow_state(root, change_id)
+    state = workflow_state(root, change_id)
+    record_workflow_state(root, state, "run")
+    return state
 
 
 class SDDWorkflow:
@@ -1116,8 +1448,20 @@ class SDDWorkflow:
 
     def require_phase(self, change_id: str, expected: WorkflowPhase) -> WorkflowResult:
         state = self.state(change_id)
-        if state.phase == expected:
+        recorded_findings = require_recorded_phase(self.root, change_id, expected)
+        if not recorded_findings and state.phase == expected:
             return WorkflowResult(state, [])
+
+        if recorded_findings:
+            failure = WorkflowFailure.from_finding(WorkflowFailureKind.PHASE_ORDER, recorded_findings[0])
+            blocked_state = WorkflowState(
+                change_id,
+                WorkflowPhase.BLOCKED,
+                state.profile,
+                state.next_action,
+                [finding for finding in recorded_findings],
+            )
+            return WorkflowResult(blocked_state, [failure])
 
         failure = WorkflowFailure(
             WorkflowFailureKind.PHASE_ORDER,
@@ -1132,6 +1476,33 @@ class SDDWorkflow:
             [failure.to_finding()],
         )
         return WorkflowResult(blocked_state, [failure])
+
+    def transition(self, change_id: str, target_phase: WorkflowPhase | str) -> WorkflowResult:
+        try:
+            phase = target_phase if isinstance(target_phase, WorkflowPhase) else WorkflowPhase(str(target_phase))
+        except ValueError:
+            failure = WorkflowFailure(
+                WorkflowFailureKind.PHASE_ORDER,
+                f"unknown workflow phase: {target_phase}",
+                change_directory(self.root, change_id),
+            )
+            return WorkflowResult(
+                WorkflowState(
+                    change_id,
+                    WorkflowPhase.BLOCKED,
+                    "unknown",
+                    "Choose a valid workflow phase.",
+                    [failure.to_finding()],
+                ),
+                [failure],
+            )
+        state = transition_workflow(self.root, change_id, phase)
+        failures = [
+            WorkflowFailure.from_finding(WorkflowFailureKind.PHASE_ORDER, finding)
+            for finding in state.findings
+            if state.is_blocked
+        ]
+        return WorkflowResult(state, failures)
 
     def sync_specs(self, change_id: str) -> WorkflowResult:
         required = self.require_phase(change_id, WorkflowPhase.SYNC_SPECS)
@@ -1174,10 +1545,12 @@ class SDDWorkflow:
         return WorkflowResult(self.state(change_id), [])
 
 
-def guard_repository(root: Path, *, require_active_change: bool = False) -> list[Finding]:
+def guard_repository(root: Path, *, require_active_change: bool = False, strict_state: bool = False) -> list[Finding]:
     findings = [finding for finding in validate(root) if finding.severity == "error"]
     if findings:
         return findings
+
+    findings.extend(validate_workflow_registry(root, strict_state=strict_state))
 
     active_changes = active_change_directories(root)
     if require_active_change and not active_changes:
@@ -1204,8 +1577,8 @@ def guard_repository(root: Path, *, require_active_change: bool = False) -> list
     return findings
 
 
-def print_guard(root: Path, *, require_active_change: bool = False) -> int:
-    findings = guard_repository(root, require_active_change=require_active_change)
+def print_guard(root: Path, *, require_active_change: bool = False, strict_state: bool = False) -> int:
+    findings = guard_repository(root, require_active_change=require_active_change, strict_state=strict_state)
     if not findings:
         print("SDD guard passed.")
         return 0
@@ -1218,7 +1591,7 @@ def print_guard(root: Path, *, require_active_change: bool = False) -> int:
 
 def pre_commit_hook_text(root: Path) -> str:
     root_arg = root.as_posix()
-    command = f"ssd-core guard --root {shlex.quote(root_arg)} --require-active-change"
+    command = f"ssd-core guard --root {shlex.quote(root_arg)} --require-active-change --strict-state"
     return "\n".join(
         [
             "#!/bin/sh",
@@ -1261,6 +1634,20 @@ def print_workflow(root: Path, state: WorkflowState) -> int:
             print(finding.format(root))
 
     return 1 if state.is_blocked else 0
+
+
+def print_transition(root: Path, state: WorkflowState) -> int:
+    if state.is_blocked:
+        print("SDD transition blocked.")
+        for finding in state.findings:
+            print(finding.format(root))
+        return 1
+
+    print("SDD transition recorded.")
+    print(f"- change: {state.change_id}")
+    print(f"- phase: {state.phase.value}")
+    print(f"- registry: {workflow_registry_path(root).relative_to(root).as_posix()}")
+    return 0
 
 
 def print_status(root: Path) -> int:
@@ -1323,6 +1710,7 @@ def create_change(root: Path, change_id: str, profile: str, title: str | None) -
         path = change_dir / filename
         path.write_text(artifact_body(filename, change_id, resolved_title, profile, today), encoding="utf-8")
 
+    record_workflow_state(root, workflow_state(root, change_id), "new")
     print(f"Created change: {change_dir.as_posix()}")
     for filename in PROFILE_ARTIFACTS[profile]:
         print(f"- {filename}")
@@ -1434,11 +1822,39 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
+    transition_parser = subcommands.add_parser("transition", help="record an enforced workflow phase transition")
+    transition_parser.add_argument("change_id", help="kebab-case change identifier")
+    transition_parser.add_argument(
+        "phase",
+        choices=[
+            WorkflowPhase.PROPOSE.value,
+            WorkflowPhase.SPECIFY.value,
+            WorkflowPhase.DESIGN.value,
+            WorkflowPhase.TASK.value,
+            WorkflowPhase.VERIFY.value,
+            WorkflowPhase.CRITIQUE.value,
+            WorkflowPhase.ARCHIVE_RECORD.value,
+            WorkflowPhase.SYNC_SPECS.value,
+            WorkflowPhase.ARCHIVE.value,
+        ],
+        help="target phase to record after artifacts prove readiness",
+    )
+    transition_parser.add_argument(
+        "--root",
+        default=".",
+        help="repository root; defaults to the current directory",
+    )
+
     guard_parser = subcommands.add_parser("guard", help="enforce SSD-Core repository governance for hooks or CI")
     guard_parser.add_argument(
         "--require-active-change",
         action="store_true",
         help="fail when no active .sdd change exists",
+    )
+    guard_parser.add_argument(
+        "--strict-state",
+        action="store_true",
+        help="fail when .sdd/state.json is missing entries or artifact checksums are stale",
     )
     guard_parser.add_argument(
         "--root",
@@ -1509,9 +1925,14 @@ def main(argv: list[str] | None = None) -> int:
         state = run_workflow(root, args.change_id, args.profile, args.title, create=not args.no_create)
         return print_workflow(root, state)
 
+    if args.command == "transition":
+        root = Path(args.root).resolve()
+        state = transition_workflow(root, args.change_id, WorkflowPhase(args.phase))
+        return print_transition(root, state)
+
     if args.command == "guard":
         root = Path(args.root).resolve()
-        return print_guard(root, require_active_change=args.require_active_change)
+        return print_guard(root, require_active_change=args.require_active_change, strict_state=args.strict_state)
 
     if args.command == "install-hooks":
         root = Path(args.root).resolve()

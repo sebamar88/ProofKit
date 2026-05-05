@@ -388,9 +388,11 @@ It MUST:
 
 - choose a profile
 - identify required artifacts
+- record declared workflow state in `.sdd/state.json`
 - dispatch phases to capable agents or execute them directly if no delegation exists
 - pass artifact references, not unnecessary full context
 - enforce dependencies between phases
+- reject phase transitions that are not supported by artifact readiness
 - show phase summaries
 - prevent archive before verification
 
@@ -400,6 +402,8 @@ It MUST NOT:
 - mark a change complete without verification evidence
 - silently ignore constitution violations
 - overwrite unrelated user changes
+
+The state registry is not hidden runtime memory. It is a repository artifact that records the declared phase, transition history, and artifact checksum for each governed change. Tooling SHOULD compare this registry with the artifacts on disk before privileged actions such as sync, archive, commit hooks, or CI gates.
 
 ## 13. Task Contract
 

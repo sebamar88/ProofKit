@@ -34,7 +34,7 @@ After install, any repository can get:
 - six rigor profiles: `quick`, `standard`, `bugfix`, `refactor`, `enterprise`, and `research`
 - a release gate that runs on Windows, Linux, and macOS
 
-No agent lock-in. No operating-system lock-in. No hidden state as the source of truth.
+No agent lock-in. No operating-system lock-in. The workflow state is explicit, versioned, and repository-native in `.sdd/state.json`.
 
 ## Golden Path: Guard A Login Change
 
@@ -86,6 +86,7 @@ my-app/.sdd/
   schemas/
   skills/
   specs/
+  state.json
 ```
 
 ### 3) Run A Governed Change
@@ -115,6 +116,7 @@ Instead of “fix login security”, point the agent at the change folder:
 ```text
 Run `ssd-core run harden-login-rate-limit --root .` before each handoff.
 Follow the phase it reports.
+After each completed artifact phase, record it with `ssd-core transition`.
 Do not archive until `ssd-core run` reports `sync-specs` or `archive`.
 ```
 
@@ -128,15 +130,21 @@ ssd-core check harden-login-rate-limit --root my-app
 
 If tasks are incomplete or verification is missing, the change cannot close cleanly.
 
-### 6) Sync And Archive
+### 6) Record State, Sync, And Archive
 
 ```text
+ssd-core transition harden-login-rate-limit specify --root my-app
+ssd-core transition harden-login-rate-limit design --root my-app
+ssd-core transition harden-login-rate-limit task --root my-app
+ssd-core transition harden-login-rate-limit verify --root my-app
+ssd-core transition harden-login-rate-limit archive-record --root my-app
+ssd-core transition harden-login-rate-limit sync-specs --root my-app
 ssd-core sync-specs harden-login-rate-limit --root my-app
 ssd-core archive harden-login-rate-limit --root my-app
 ssd-core validate --root my-app
 ```
 
-Outcome: the code change, specs, verification evidence, and archive record all stay in the repo.
+Outcome: the code change, specs, verification evidence, state transitions, checksums, and archive record all stay in the repo.
 
 ## Why SSD-Core Instead Of Another SDD Template
 
@@ -170,29 +178,31 @@ result = workflow.run(
 if result.state.phase == WorkflowPhase.PROPOSE:
     print(result.state.next_action)
 
+transitioned = workflow.transition("harden-login-rate-limit", WorkflowPhase.SPECIFY)
+
 blocked = workflow.sync_specs("harden-login-rate-limit")
 if not blocked.ok:
     print(blocked.failures[0].kind.value)
     print(blocked.failures[0].message)
 ```
 
-`SDDWorkflow.sync_specs()` and `SDDWorkflow.archive()` refuse to run unless the current phase permits them. That is the difference between SSD helpers and SSD enforcement.
+`SDDWorkflow.transition()`, `SDDWorkflow.sync_specs()`, and `SDDWorkflow.archive()` refuse invalid phase order. Sync and archive also require the phase to be recorded in `.sdd/state.json`, not merely inferred from edited files. That is the difference between SSD helpers and SSD enforcement.
 
 ## Hard Enforcement
 
 SSD-Core can also enforce governance at git/CI boundaries:
 
 ```text
-ssd-core guard --root my-app --require-active-change
+ssd-core guard --root my-app --require-active-change --strict-state
 ssd-core install-hooks --root my-app
 ```
 
-`guard` fails when the repository foundation is invalid, a workflow is blocked, an archived delta was not synced into living specs, or the policy requires an active `.sdd/changes/*` record and none exists.
+`guard` fails when the repository foundation is invalid, a workflow is blocked, an archived delta was not synced into living specs, the policy requires an active `.sdd/changes/*` record and none exists, or strict state finds stale artifact checksums.
 
 `install-hooks` writes a pre-commit hook that runs:
 
 ```text
-ssd-core guard --require-active-change
+ssd-core guard --require-active-change --strict-state
 ```
 
 That makes ungoverned commits fail locally. CI can run the same `guard` command to make the policy server-side.
@@ -233,7 +243,8 @@ ssd-core validate --root <path>
 ssd-core status --root <path>
 ssd-core new <change-id> --profile <profile> --title "Human intent" --root <path>
 ssd-core run <change-id> --profile <profile> --title "Human intent" --root <path>
-ssd-core guard --require-active-change --root <path>
+ssd-core transition <change-id> <phase> --root <path>
+ssd-core guard --require-active-change --strict-state --root <path>
 ssd-core install-hooks --root <path>
 ssd-core check <change-id> --root <path>
 ssd-core sync-specs <change-id> --root <path>
@@ -252,6 +263,7 @@ ssd-core archive <change-id> --root <path>
   schemas/       metadata and evidence schemas
   skills/        portable workflow capabilities
   specs/         living behavior specs
+  state.json     declared workflow phases and artifact checksums
 ```
 
 Core rule: no archive without verification evidence.
@@ -327,7 +339,7 @@ See:
 
 ## Current Status
 
-Current release: `v0.1.6`
+Current release: `v0.1.7`
 
 Solid in v0.1:
 
@@ -340,6 +352,7 @@ Solid in v0.1:
 - workflow binding through `ssd-core run`
 - importable strict orchestrator through `SDDWorkflow`
 - hard enforcement through `ssd-core guard` and git pre-commit hooks
+- explicit `.sdd/state.json` registry with validated phase transitions and artifact checksums
 
 Deferred to future versions:
 

@@ -21,13 +21,25 @@ Choose your path:
 
 ### 1) Install
 
-Python/uv path:
+Published npm path:
+
+```text
+npm install -g ssd-core
+```
+
+One-shot npm path:
+
+```text
+npx -y ssd-core@latest version
+```
+
+Source checkout path:
 
 ```text
 uv tool install .
 ```
 
-Node wrapper path:
+or:
 
 ```text
 npm install -g .

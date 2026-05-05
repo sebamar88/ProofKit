@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.2 - 2026-05-05
+
+- Updated install instructions for the published npm package, including global install and one-shot `npx` usage.
+
 ## 0.1.1 - 2026-05-05
 
 - Fixed the npm wrapper so relative `--root` paths resolve from the caller's current directory instead of the installed package directory.

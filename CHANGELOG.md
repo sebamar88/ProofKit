@@ -4,11 +4,36 @@
 
 ## 0.3.0 - 2026-05-05
 
+- Added `WorkflowEngine` as the declarative command gate for workflow commands, including `guard()`, `allowed_commands()`, and `execute()`.
+- Added `COMMAND_GATES` as the single command-to-phase policy map for `verify`, `sync-specs`, and `archive`.
+- Made `workflow_state()` prefer declared `.sdd/state.json` phase while keeping artifact-only inference available through `infer_phase_from_artifacts()` and `infer_state_from_artifacts()`.
+- Added semantic verification matrix validation so `verification.md` must contain a passing row before closure.
 - Added executable verification evidence through `ssd-core verify --command`, including stdout/stderr logs, exit codes, and output checksums under `.sdd/evidence/`.
 - Added `WorkflowEngine.execute()` and `SDDWorkflow.verify()` so the engine can run gated workflow actions, not only validate whether they are allowed.
 - Added `guard --require-execution-evidence` for repositories that want verified or archived changes to require passing execution records.
 - Restricted the `verify` phase to the dedicated verify command so `transition verify` can no longer reconcile manual edits into a verified state.
-- Added semantic verification checks for placeholder evidence and passing verification matrix rows.
+
+## 0.2.0 - 2026-05-05
+
+- Added `gate_command()` as the central pre-execution gate for destructive workflow commands.
+- Hardened `SDDWorkflow.require_phase()` with optional checksum enforcement.
+- Made `sync-specs` and `archive` use command gates instead of local phase checks.
+- Added tests that prove stale artifact checksums block gated commands when checksum enforcement is enabled.
+
+## 0.1.9 - 2026-05-05
+
+- Blocked direct transition into `verify`; the `verify` phase must go through the dedicated `ssd-core verify` command.
+- Blocked direct transition into `archived`; archive must go through `ssd-core archive`.
+- Added `ssd-core log` to inspect recorded workflow history from `.sdd/state.json`.
+- Tightened transition tests around restricted phases and recorded history.
+
+## 0.1.8 - 2026-05-05
+
+- Added `ssd-core verify` as the explicit gate for recording the `verify` phase.
+- Added placeholder-evidence detection so `verification.md` cannot pass with template text such as `not-run` or `pending verification evidence`.
+- Added `ssd-core phase` to show declared, artifact-inferred, and effective workflow phases.
+- Added git `pre-push` hook generation alongside the existing pre-commit hook.
+- Exported verification helpers through the public Python API.
 
 ## 0.1.7 - 2026-05-05
 

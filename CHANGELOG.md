@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.0 - 2026-05-05
+
+- Split monolithic `ssd_core/cli.py` (3845 lines) into four focused modules with a clean dependency chain:
+  - `ssd_core/_types.py` (~360 lines): `VERSION`, color helpers, all constants, enums, and dataclasses. Zero internal dependencies.
+  - `ssd_core/_workflow.py` (~2300 lines): file I/O, frontmatter, validation, change management, state machine, `WorkflowEngine`, `SDDWorkflow`, and `_auto_advance`. Imports only from `_types`.
+  - `ssd_core/_render.py` (~880 lines): all `print_*` functions, `_print_auto_step`, `print_auto`, CI templates, `run_demo`, `run_fast_demo`. Imports from `_types` and `_workflow`.
+  - `ssd_core/cli.py` (~430 lines): `build_parser` and `main` only. Re-exports the full public surface via star imports so `__init__.py` and all downstream consumers are unaffected.
+- Public Python API (`ssd_core/__init__.py`) is unchanged — all imports from `ssd_core` continue to work without modification.
+- All 65 tests pass unchanged. No behavioral changes.
+
 ## 0.8.0 - 2026-05-06
 
 - Added `ssd-core evidence <change_id>`: displays all recorded execution evidence — command, exit code, duration, timestamp, output log path, and SHA-256 checksum integrity status. Lets humans and CI systems inspect exactly what ran before a change was marked verified.

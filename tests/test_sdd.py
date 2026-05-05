@@ -48,7 +48,7 @@ class SddToolingTests(unittest.TestCase):
             self.record_transition(root, change_id, phase)
 
     def test_version_is_defined(self) -> None:
-        self.assertEqual(sdd.VERSION, "0.2.0")
+        self.assertEqual(sdd.VERSION, "0.3.0")
 
     def test_distribution_versions_match(self) -> None:
         pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -390,7 +390,7 @@ class SddToolingTests(unittest.TestCase):
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
 
         change_dir = root / ".sdd" / "changes" / change_id
-        self.assertEqual(sdd.workflow_state(root, change_id).phase, sdd.WorkflowPhase.PROPOSE)
+        self.assertEqual(sdd.infer_phase_from_artifacts(root, change_id), sdd.WorkflowPhase.PROPOSE)
 
         for filename in ["proposal.md", "delta-spec.md", "design.md", "tasks.md", "archive.md"]:
             path = change_dir / filename
@@ -399,7 +399,7 @@ class SddToolingTests(unittest.TestCase):
         tasks_path = change_dir / "tasks.md"
         tasks_path.write_text(tasks_path.read_text(encoding="utf-8").replace("- [ ]", "- [x]"), encoding="utf-8")
 
-        state = sdd.workflow_state(root, change_id)
+        state = sdd.infer_state_from_artifacts(root, change_id)
         self.assertEqual(state.phase, sdd.WorkflowPhase.VERIFY)
         self.assertIn("verification.md", state.next_action)
 
@@ -411,7 +411,7 @@ class SddToolingTests(unittest.TestCase):
         verification_text = verification_text.replace("Record host-project verification actions.", "pytest -q (exit 0)")
         verification_path.write_text(verification_text, encoding="utf-8")
 
-        self.assertEqual(sdd.workflow_state(root, change_id).phase, sdd.WorkflowPhase.SYNC_SPECS)
+        self.assertEqual(sdd.infer_phase_from_artifacts(root, change_id), sdd.WorkflowPhase.SYNC_SPECS)
         self.record_standard_ready_transitions(root, change_id)
 
         with contextlib.redirect_stdout(io.StringIO()):
@@ -443,7 +443,7 @@ class SddToolingTests(unittest.TestCase):
         verification_text = verification_text.replace("Record host-project verification actions.", "pytest -q (exit 0)")
         verification_path.write_text(verification_text, encoding="utf-8")
 
-        state = sdd.workflow_state(root, change_id)
+        state = sdd.infer_state_from_artifacts(root, change_id)
         self.assertEqual(state.phase, sdd.WorkflowPhase.ARCHIVE_RECORD)
         self.assertIn("archive.md", state.next_action)
 
@@ -871,6 +871,216 @@ class SddToolingTests(unittest.TestCase):
         findings = sdd.gate_command(root, change_id, sdd.WorkflowPhase.TASK, check_checksum=True)
         self.assertEqual(len(findings), 1)
         self.assertIn("artifact checksum is stale", findings[0].message)
+
+    # --- WorkflowEngine and COMMAND_GATES ---
+
+    def test_command_gates_contains_all_gated_commands(self) -> None:
+        self.assertIn("verify", sdd.COMMAND_GATES)
+        self.assertIn("sync-specs", sdd.COMMAND_GATES)
+        self.assertIn("archive", sdd.COMMAND_GATES)
+        # verify must NOT check checksum; sync-specs and archive MUST
+        self.assertFalse(sdd.COMMAND_GATES["verify"][1])
+        self.assertTrue(sdd.COMMAND_GATES["sync-specs"][1])
+        self.assertTrue(sdd.COMMAND_GATES["archive"][1])
+
+    def test_workflow_engine_guard_blocks_before_required_phase(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"engine-guard-{uuid.uuid4().hex}"
+        change_id = "guard-login"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
+
+        engine = sdd.WorkflowEngine(root)
+        # no phase recorded yet — all gated commands must block
+        for command in sdd.COMMAND_GATES:
+            findings = engine.guard(change_id, command)
+            self.assertTrue(len(findings) > 0, f"expected block for command '{command}'")
+
+    def test_workflow_engine_guard_rejects_unknown_command(self) -> None:
+        engine = sdd.WorkflowEngine(REPO_ROOT)
+        findings = engine.guard("any-change", "made-up-command")
+        self.assertEqual(len(findings), 1)
+        self.assertIn("no gate registered", findings[0].message)
+
+    def test_workflow_engine_allowed_commands_reflects_state(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"engine-allowed-{uuid.uuid4().hex}"
+        change_id = "guard-login"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
+
+        engine = sdd.WorkflowEngine(root)
+        # no phase recorded — no commands allowed
+        self.assertEqual(engine.allowed_commands(change_id), [])
+
+        change_dir = root / ".sdd" / "changes" / change_id
+        for filename in ["proposal.md", "delta-spec.md", "design.md", "archive.md"]:
+            path = change_dir / filename
+            path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
+        tasks_path = change_dir / "tasks.md"
+        tasks_path.write_text(tasks_path.read_text(encoding="utf-8").replace("- [ ]", "- [x]"), encoding="utf-8")
+        tasks_path.write_text(tasks_path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.transition_workflow(root, change_id, sdd.WorkflowPhase.SPECIFY)
+            sdd.transition_workflow(root, change_id, sdd.WorkflowPhase.DESIGN)
+            sdd.transition_workflow(root, change_id, sdd.WorkflowPhase.TASK)
+
+        # TASK recorded — only "verify" should be allowed (no checksum, correct phase)
+        allowed = engine.allowed_commands(change_id)
+        self.assertIn("verify", allowed)
+        self.assertNotIn("archive", allowed)
+        self.assertNotIn("sync-specs", allowed)
+
+    def test_workflow_engine_is_exported(self) -> None:
+        self.assertIs(ssd_core.WorkflowEngine, sdd.WorkflowEngine)
+        self.assertIs(ssd_core.COMMAND_GATES, sdd.COMMAND_GATES)
+
+    # --- validate_verification_matrix ---
+
+    def test_validate_verification_matrix_blocks_when_no_passing_row(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"matrix-no-pass-{uuid.uuid4().hex}"
+        change_id = "guard-login"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
+
+        verification_path = root / ".sdd" / "changes" / change_id / "verification.md"
+        # Replace placeholder text but leave status as a non-passing value
+        text = verification_path.read_text(encoding="utf-8")
+        text = text.replace("pending verification evidence", "unit test evidence")
+        text = text.replace("not-run", "fail")  # 'fail' is not a passing status
+        text = text.replace("Record host-project verification actions.", "pytest -q")
+        verification_path.write_text(text, encoding="utf-8")
+
+        findings = sdd.validate_verification_matrix(verification_path)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("no passing rows", findings[0].message)
+
+    def test_validate_verification_matrix_passes_with_recognized_status(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"matrix-pass-{uuid.uuid4().hex}"
+        change_id = "guard-login"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
+
+        verification_path = root / ".sdd" / "changes" / change_id / "verification.md"
+        text = verification_path.read_text(encoding="utf-8")
+        text = text.replace("pending verification evidence", "unit test evidence")
+        text = text.replace("not-run", "pass")
+        text = text.replace("Record host-project verification actions.", "pytest -q")
+        verification_path.write_text(text, encoding="utf-8")
+
+        findings = sdd.validate_verification_matrix(verification_path)
+        self.assertEqual(findings, [])
+
+    def test_validate_verification_matrix_is_exported(self) -> None:
+        self.assertIs(ssd_core.validate_verification_matrix, sdd.validate_verification_matrix)
+
+    def test_check_change_blocks_when_matrix_has_no_passing_row(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"check-matrix-{uuid.uuid4().hex}"
+        change_id = "guard-login"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
+
+        change_dir = root / ".sdd" / "changes" / change_id
+        for filename in ["proposal.md", "delta-spec.md", "design.md", "tasks.md", "archive.md"]:
+            path = change_dir / filename
+            path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
+        tasks_path = change_dir / "tasks.md"
+        tasks_path.write_text(tasks_path.read_text(encoding="utf-8").replace("- [ ]", "- [x]"), encoding="utf-8")
+
+        # verification.md has status:verified but matrix status is 'fail' (not a passing value)
+        verification_path = change_dir / "verification.md"
+        text = verification_path.read_text(encoding="utf-8")
+        text = text.replace("status: draft", "status: verified")
+        text = text.replace("pending verification evidence", "unit test evidence")
+        text = text.replace("not-run", "fail")
+        text = text.replace("Record host-project verification actions.", "pytest -q")
+        verification_path.write_text(text, encoding="utf-8")
+
+        findings = sdd.check_change(root, change_id)
+        messages = self.finding_messages(findings)
+        self.assertTrue(any("no passing rows" in m for m in messages))
+
+    def test_workflow_state_prefers_declared_phase_over_artifact_inference(self) -> None:
+        """workflow_state() returns the state.json declared phase even when artifacts
+        could support a higher phase.  Only structural blockers (missing/blocked
+        artifacts) override the recorded phase."""
+        root = REPO_ROOT / ".tmp-tests" / f"state-primary-{uuid.uuid4().hex}"
+        change_id = "guard-login"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            # run_workflow records PROPOSE in state.json
+            self.assertEqual(sdd.run_workflow(root, change_id, "standard", "Guard login", create=True).phase, sdd.WorkflowPhase.PROPOSE)
+
+        # Advance artifacts to "tasks ready" level so artifact inference would return VERIFY
+        change_dir = root / ".sdd" / "changes" / change_id
+        for filename in ["proposal.md", "delta-spec.md", "design.md", "tasks.md"]:
+            path = change_dir / filename
+            path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
+        tasks_path = change_dir / "tasks.md"
+        tasks_path.write_text(tasks_path.read_text(encoding="utf-8").replace("- [ ]", "- [x]"), encoding="utf-8")
+
+        # Artifact inference now points to VERIFY — but state.json still says PROPOSE
+        self.assertEqual(sdd.infer_phase_from_artifacts(root, change_id), sdd.WorkflowPhase.VERIFY)
+        # workflow_state() must return the declared phase, not the artifact-inferred one
+        self.assertEqual(sdd.workflow_state(root, change_id).phase, sdd.WorkflowPhase.PROPOSE)
+
+    def test_infer_phase_from_artifacts_ignores_state_json(self) -> None:
+        """infer_phase_from_artifacts() always reflects artifact content regardless
+        of what is recorded in state.json."""
+        root = REPO_ROOT / ".tmp-tests" / f"infer-artifacts-{uuid.uuid4().hex}"
+        change_id = "guard-login"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            # run_workflow records PROPOSE
+            self.assertEqual(sdd.run_workflow(root, change_id, "standard", "Guard login", create=True).phase, sdd.WorkflowPhase.PROPOSE)
+
+        # Artifact level: only proposal.md ready — inference should return SPECIFY
+        change_dir = root / ".sdd" / "changes" / change_id
+        proposal_path = change_dir / "proposal.md"
+        proposal_path.write_text(proposal_path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
+
+        # state.json says PROPOSE; artifact inference says SPECIFY (proposal ready)
+        self.assertEqual(sdd.declared_workflow_phase(root, change_id), sdd.WorkflowPhase.PROPOSE)
+        self.assertEqual(sdd.infer_phase_from_artifacts(root, change_id), sdd.WorkflowPhase.SPECIFY)
+        # workflow_state() returns PROPOSE (declared), not SPECIFY
+        self.assertEqual(sdd.workflow_state(root, change_id).phase, sdd.WorkflowPhase.PROPOSE)
+
+    def test_infer_phase_from_artifacts_is_exported(self) -> None:
+        self.assertIs(ssd_core.infer_phase_from_artifacts, sdd.infer_phase_from_artifacts)
+
+    def test_transition_blocks_when_artifacts_behind_target_despite_declared_phase(self) -> None:
+        """Even when state.json declares a phase that allows the requested transition,
+        the artifact readiness check must still block if artifacts don't support it."""
+        root = REPO_ROOT / ".tmp-tests" / f"transition-artifact-gate-{uuid.uuid4().hex}"
+        change_id = "guard-login"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            self.assertEqual(sdd.run_workflow(root, change_id, "standard", "Guard login", create=True).phase, sdd.WorkflowPhase.PROPOSE)
+
+        # Record SPECIFY in state.json without the artifacts being ready
+        # (do it by manually recording the transition after making proposal "ready")
+        proposal_path = root / ".sdd" / "changes" / change_id / "proposal.md"
+        proposal_path.write_text(proposal_path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
+        self.record_transition(root, change_id, sdd.WorkflowPhase.SPECIFY)
+
+        # state.json now says SPECIFY; delta-spec.md is still draft
+        self.assertEqual(sdd.declared_workflow_phase(root, change_id), sdd.WorkflowPhase.SPECIFY)
+        # SPECIFY allows DESIGN — but artifact phase is still SPECIFY (delta-spec.md is draft)
+        # phase_is_supported(DESIGN, SPECIFY) → 30 <= 20 → False → blocked
+        blocked = sdd.transition_workflow(root, change_id, sdd.WorkflowPhase.DESIGN)
+        self.assertTrue(blocked.is_blocked)
+        self.assertTrue(any("artifact phase" in finding.message for finding in blocked.findings))
 
 
 if __name__ == "__main__":

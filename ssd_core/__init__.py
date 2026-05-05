@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from .cli import (
+    COMMAND_GATES,
     SDDWorkflow,
     VERSION,
+    WorkflowEngine,
     WorkflowFailure,
     WorkflowFailureKind,
     WorkflowPhase,
@@ -11,15 +13,20 @@ from .cli import (
     declared_workflow_phase,
     gate_command,
     guard_repository,
+    infer_phase_from_artifacts,
+    infer_state_from_artifacts,
     install_hooks,
     transition_workflow,
     validate_verification_evidence,
+    validate_verification_matrix,
     verify_change,
 )
 
 __all__ = [
+    "COMMAND_GATES",
     "SDDWorkflow",
     "VERSION",
+    "WorkflowEngine",
     "WorkflowFailure",
     "WorkflowFailureKind",
     "WorkflowPhase",
@@ -28,8 +35,11 @@ __all__ = [
     "declared_workflow_phase",
     "gate_command",
     "guard_repository",
+    "infer_phase_from_artifacts",
+    "infer_state_from_artifacts",
     "install_hooks",
     "transition_workflow",
     "validate_verification_evidence",
+    "validate_verification_matrix",
     "verify_change",
 ]

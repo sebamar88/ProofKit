@@ -11,10 +11,10 @@ from datetime import date
 from enum import Enum
 from importlib.resources import files
 from pathlib import Path
-from typing import Iterable, Protocol
+from typing import ClassVar, Iterable, Protocol
 
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 REQUIRED_DIRECTORIES = [
     ".sdd",
@@ -140,6 +140,14 @@ TOKEN_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 OPEN_TASK_PATTERN = re.compile(r"^\s*-\s+\[\s\]", re.MULTILINE)
 
+# Matches a verification matrix row (5 pipe-separated cells) whose last cell is
+# a recognised passing status.  Separator rows (--- | --- ...) are skipped because
+# they contain only hyphens/spaces, not word characters in between.
+MATRIX_PASSING_ROW_PATTERN = re.compile(
+    r"^\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|\s*(?:pass|verified|complete)\s*\|\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
 # Terms that indicate placeholder evidence in verification.md.
 # If any appear in a verification artifact, it cannot be recorded as verified.
 VERIFICATION_EVIDENCE_BLOCKERS = [
@@ -221,6 +229,23 @@ PHASE_ORDER = {
     WorkflowPhase.SYNC_SPECS: 80,
     WorkflowPhase.ARCHIVE: 90,
     WorkflowPhase.ARCHIVED: 100,
+}
+
+# Maps each phase to its canonical next-action message.  Used by workflow_state
+# when returning a state.json-declared phase so we don't re-scan artifacts.
+PHASE_NEXT_ACTIONS: dict[WorkflowPhase, str] = {
+    WorkflowPhase.NOT_STARTED:    "Create the governed change artifacts.",
+    WorkflowPhase.PROPOSE:        "Complete proposal.md and set status to ready.",
+    WorkflowPhase.SPECIFY:        "Complete delta-spec.md and set status to ready.",
+    WorkflowPhase.DESIGN:         "Complete design.md and set status to ready.",
+    WorkflowPhase.TASK:           "Complete tasks.md, close all task checkboxes, and set status to ready.",
+    WorkflowPhase.VERIFY:         "Record passing evidence in verification.md and set status to verified.",
+    WorkflowPhase.CRITIQUE:       "Resolve critique.md and set status to ready or verified.",
+    WorkflowPhase.ARCHIVE_RECORD: "Complete archive.md and set status to ready.",
+    WorkflowPhase.SYNC_SPECS:     "Run `ssd-core sync-specs <change_id> --root <repo>`.",
+    WorkflowPhase.ARCHIVE:        "Run `ssd-core archive <change_id> --root <repo>`.",
+    WorkflowPhase.ARCHIVED:       "Review archived change evidence.",
+    WorkflowPhase.BLOCKED:        "Resolve blocking findings before continuing.",
 }
 
 ALLOWED_TRANSITIONS = {
@@ -834,6 +859,7 @@ def check_change_artifacts(root: Path, change_dir: Path, change_id: str) -> list
             findings.append(Finding("error", verification_path, "verification status must be verified"))
 
         findings.extend(validate_verification_evidence(verification_path))
+        findings.extend(validate_verification_matrix(verification_path))
 
     return findings
 
@@ -848,6 +874,27 @@ def validate_verification_evidence(verification_path: Path) -> list[Finding]:
         if term in text:
             findings.append(Finding("error", verification_path, f"verification still contains placeholder: {term}"))
     return findings
+
+
+def validate_verification_matrix(verification_path: Path) -> list[Finding]:
+    """Semantic check: the verification matrix must contain at least one passing row.
+
+    A passing row has a recognised status value in its last column: pass, verified,
+    or complete.  This catches matrices that had placeholder text removed but were
+    never updated with real test evidence.
+    """
+    if not verification_path.is_file():
+        return []
+    text = verification_path.read_text(encoding="utf-8")
+    if MATRIX_PASSING_ROW_PATTERN.search(text):
+        return []
+    return [
+        Finding(
+            "error",
+            verification_path,
+            "verification matrix has no passing rows; at least one row status must be: pass, verified, or complete",
+        )
+    ]
 
 
 def check_change(root: Path, change_id: str) -> list[Finding]:
@@ -867,7 +914,8 @@ def verify_change(root: Path, change_id: str) -> list[Finding]:
     Checksum validation is intentionally skipped: editing verification.md after
     recording TASK is the expected workflow for this phase.
     """
-    findings = gate_command(root, change_id, WorkflowPhase.TASK, check_checksum=False)
+    required_phase, check_checksum = COMMAND_GATES["verify"]
+    findings = gate_command(root, change_id, required_phase, check_checksum=check_checksum)
     if findings:
         return findings
 
@@ -933,7 +981,8 @@ def validate_spec_sync(root: Path, change_dir: Path, change_id: str) -> list[Fin
 
 
 def archive_change(root: Path, change_id: str) -> list[Finding]:
-    findings = gate_command(root, change_id, WorkflowPhase.ARCHIVE, check_checksum=True)
+    required_phase, check_checksum = COMMAND_GATES["archive"]
+    findings = gate_command(root, change_id, required_phase, check_checksum=check_checksum)
     if findings:
         return findings
 
@@ -992,7 +1041,8 @@ def append_sync_record(archive_path: Path, spec_path: Path, root: Path) -> None:
 
 
 def sync_specs(root: Path, change_id: str) -> list[Finding]:
-    findings = gate_command(root, change_id, WorkflowPhase.SYNC_SPECS, check_checksum=True)
+    required_phase, check_checksum = COMMAND_GATES["sync-specs"]
+    findings = gate_command(root, change_id, required_phase, check_checksum=check_checksum)
     if findings:
         return findings
 
@@ -1031,7 +1081,7 @@ def sync_specs(root: Path, change_id: str) -> list[Finding]:
     if archive_path.is_file():
         append_sync_record(archive_path, spec_path, root)
 
-    record_workflow_state(root, workflow_state(root, change_id), "sync-specs")
+    record_workflow_state(root, _infer_workflow_state(root, change_id), "sync-specs")
     print(f"Synced living spec: {spec_path.as_posix()}")
     return []
 
@@ -1184,6 +1234,16 @@ TRANSITION_RESTRICTED_PHASES = {
     WorkflowPhase.BLOCKED,
 }
 
+# Maps CLI command name to (required_recorded_phase, check_checksum_integrity).
+# This is the single authority for which phase a command requires and whether
+# it validates artifact integrity before executing.  WorkflowEngine reads it
+# directly.  Adding a new gated command means adding one entry here.
+COMMAND_GATES: dict[str, tuple[WorkflowPhase, bool]] = {
+    "verify":     (WorkflowPhase.TASK,       False),
+    "sync-specs": (WorkflowPhase.SYNC_SPECS, True),
+    "archive":    (WorkflowPhase.ARCHIVE,    True),
+}
+
 
 def transition_workflow(root: Path, change_id: str, target_phase: WorkflowPhase) -> WorkflowState:
     findings = validate_change_id(change_id)
@@ -1204,21 +1264,20 @@ def transition_workflow(root: Path, change_id: str, target_phase: WorkflowPhase)
             [Finding("error", None, message)],
         )
 
-    inferred = workflow_state(root, change_id)
-    if inferred.is_blocked:
-        return inferred
+    state = workflow_state(root, change_id)
+    if state.is_blocked:
+        return state
 
-    current = declared_workflow_phase(root, change_id)
-    if current is None:
-        current = WorkflowPhase.NOT_STARTED if inferred.phase != WorkflowPhase.ARCHIVED else WorkflowPhase.ARCHIVE
+    # current is the declared phase when recorded (state.json-primary), otherwise artifact-inferred.
+    current = state.phase
 
     allowed = ALLOWED_TRANSITIONS.get(current, set())
     if target_phase not in allowed:
         return WorkflowState(
             change_id,
             WorkflowPhase.BLOCKED,
-            inferred.profile,
-            inferred.next_action,
+            state.profile,
+            state.next_action,
             [
                 Finding(
                     "error",
@@ -1228,22 +1287,24 @@ def transition_workflow(root: Path, change_id: str, target_phase: WorkflowPhase)
             ],
         )
 
-    if not phase_is_supported(target_phase, inferred.phase):
+    # Readiness check: artifacts must actually support the target phase regardless of what is declared.
+    artifact_phase = infer_phase_from_artifacts(root, change_id)
+    if not phase_is_supported(target_phase, artifact_phase):
         return WorkflowState(
             change_id,
             WorkflowPhase.BLOCKED,
-            inferred.profile,
-            inferred.next_action,
+            state.profile,
+            state.next_action,
             [
                 Finding(
                     "error",
                     change_location(root, change_id),
-                    f"artifacts do not support transition to {target_phase.value}; inferred phase is {inferred.phase.value}",
+                    f"artifacts do not support transition to {target_phase.value}; artifact phase is {artifact_phase.value}",
                 )
             ],
         )
 
-    transitioned = WorkflowState(change_id, target_phase, inferred.profile, inferred.next_action, [])
+    transitioned = WorkflowState(change_id, target_phase, state.profile, state.next_action, [])
     record_workflow_state(root, transitioned, "transition")
     return transitioned
 
@@ -1355,19 +1416,19 @@ def validate_workflow_registry(root: Path, *, strict_state: bool = False) -> lis
             findings.append(Finding("error", path, f"workflow state phase is invalid for {change_id}: {raw_phase}"))
             continue
 
-        inferred = workflow_state(root, change_id)
-        if inferred.phase == WorkflowPhase.NOT_STARTED:
+        artifact_state = _infer_workflow_state(root, change_id)
+        if artifact_state.phase == WorkflowPhase.NOT_STARTED:
             findings.append(Finding("error", path, f"workflow state references missing change: {change_id}"))
             continue
-        if inferred.is_blocked:
-            findings.extend(inferred.findings)
+        if artifact_state.is_blocked:
+            findings.extend(artifact_state.findings)
             continue
-        if PHASE_ORDER[declared] > PHASE_ORDER[inferred.phase]:
+        if PHASE_ORDER[declared] > PHASE_ORDER[artifact_state.phase]:
             findings.append(
                 Finding(
                     "error",
                     change_location(root, change_id),
-                    f"declared phase {declared.value} is ahead of inferred phase {inferred.phase.value}",
+                    f"declared phase {declared.value} is ahead of artifact phase {artifact_state.phase.value}",
                 )
             )
 
@@ -1406,7 +1467,14 @@ def artifact_status(change_dir: Path, filename: str) -> tuple[str, Finding | Non
     return metadata.get("status", "unknown"), None
 
 
-def workflow_state(root: Path, change_id: str) -> WorkflowState:
+def _infer_workflow_state(root: Path, change_id: str) -> WorkflowState:
+    """Return workflow state inferred purely from artifact content, ignoring state.json.
+
+    Private implementation consumed by ``workflow_state`` (as the state.json-less
+    fallback), ``infer_phase_from_artifacts``, ``transition_workflow`` (readiness
+    check), ``validate_workflow_registry`` (consistency cross-check), and
+    ``sync_specs`` (post-sync phase advancement).
+    """
     findings = validate_change_id(change_id)
     if findings:
         return WorkflowState(change_id, WorkflowPhase.BLOCKED, "unknown", "Use a kebab-case change id.", findings)
@@ -1515,6 +1583,94 @@ def workflow_state(root: Path, change_id: str) -> WorkflowState:
         f"Run `ssd-core archive {change_id} --root <repo>`.",
         [],
     )
+
+
+def workflow_state(root: Path, change_id: str) -> WorkflowState:
+    """Return the current workflow state.
+
+    ``state.json`` is the authoritative phase source when a phase has been
+    recorded for this change.  Structural blockers (missing artifacts, blocked
+    statuses) still gate execution regardless of the declared phase.  For
+    changes with no recorded phase the function falls back to pure artifact
+    inference via ``_infer_workflow_state``.
+    """
+    findings = validate_change_id(change_id)
+    if findings:
+        return WorkflowState(change_id, WorkflowPhase.BLOCKED, "unknown", "Use a kebab-case change id.", findings)
+
+    archived_dir = archived_change_directory(root, change_id)
+    if archived_dir is not None:
+        return WorkflowState(
+            change_id,
+            WorkflowPhase.ARCHIVED,
+            "archived",
+            f"Review archived evidence at {archived_dir.relative_to(root).as_posix()}.",
+            [],
+        )
+
+    change_dir = change_directory(root, change_id)
+    if not change_dir.is_dir():
+        return WorkflowState(
+            change_id, WorkflowPhase.NOT_STARTED, "unknown", "Create the governed change artifacts.", []
+        )
+
+    summary = summarize_change(change_dir)
+    if summary.profile == "unknown":
+        return WorkflowState(
+            change_id,
+            WorkflowPhase.BLOCKED,
+            summary.profile,
+            "Fix change artifact frontmatter so the profile can be detected.",
+            [Finding("error", change_dir, "could not detect profile")],
+        )
+
+    structural_findings: list[Finding] = []
+    for filename in summary.missing:
+        structural_findings.append(Finding("error", change_dir / filename, "required profile artifact is missing"))
+    for filename in summary.present:
+        status_value, status_finding = artifact_status(change_dir, filename)
+        if status_finding is not None:
+            structural_findings.append(status_finding)
+        elif status_value == "blocked":
+            structural_findings.append(Finding("error", change_dir / filename, "artifact status is blocked"))
+    if structural_findings:
+        return WorkflowState(
+            change_id,
+            WorkflowPhase.BLOCKED,
+            summary.profile,
+            "Resolve blocking artifact findings before continuing.",
+            structural_findings,
+        )
+
+    # state.json is authoritative when a phase has been recorded.
+    declared = declared_workflow_phase(root, change_id)
+    if declared is not None:
+        next_action = PHASE_NEXT_ACTIONS.get(declared, f"Continue {declared.value} phase.")
+        return WorkflowState(change_id, declared, summary.profile, next_action, [])
+
+    # No recorded phase — fall back to artifact inference.
+    return _infer_workflow_state(root, change_id)
+
+
+def infer_phase_from_artifacts(root: Path, change_id: str) -> WorkflowPhase:
+    """Return the phase implied by artifact state alone, ignoring state.json.
+
+    Use this when you need to know what artifacts actually support,
+    independent of what has been declared in ``state.json``.  Consumed by
+    ``transition_workflow`` for artifact readiness checks and by
+    ``validate_workflow_registry`` for consistency cross-checks.
+    """
+    return _infer_workflow_state(root, change_id).phase
+
+
+def infer_state_from_artifacts(root: Path, change_id: str) -> WorkflowState:
+    """Return the full WorkflowState inferred from artifact content, ignoring state.json.
+
+    Useful when you need the complete state (phase, next_action, profile, findings)
+    as determined by artifacts alone.  ``infer_phase_from_artifacts`` is a
+    convenience wrapper around this that returns only the phase.
+    """
+    return _infer_workflow_state(root, change_id)
 
 
 def run_workflow(root: Path, change_id: str, profile: str, title: str | None, *, create: bool = True) -> WorkflowState:
@@ -1669,6 +1825,42 @@ class SDDWorkflow:
         return WorkflowResult(self.state(change_id), [])
 
 
+class WorkflowEngine:
+    """Declarative workflow engine.
+
+    ``COMMAND_GATES`` is the single definition of which phase each gated command
+    requires and whether it enforces artifact checksum integrity before executing.
+    Changing an entry here propagates to every command that calls ``guard()``.
+
+    Intended use by external tooling and CI:
+
+        engine = WorkflowEngine("/path/to/repo")
+        findings = engine.guard("my-change", "archive")
+        if findings:
+            ...blocked...
+    """
+
+    COMMAND_GATES: ClassVar[dict[str, tuple[WorkflowPhase, bool]]] = COMMAND_GATES
+
+    def __init__(self, root: Path | str) -> None:
+        self.root = Path(root).resolve()
+
+    def guard(self, change_id: str, command: str) -> list[Finding]:
+        """Return block findings for *command* against *change_id*, or [] if the gate passes."""
+        if command not in self.COMMAND_GATES:
+            return [Finding("error", None, f"no gate registered for command: {command}")]
+        required_phase, check_checksum = self.COMMAND_GATES[command]
+        return gate_command(self.root, change_id, required_phase, check_checksum=check_checksum)
+
+    def allowed_commands(self, change_id: str) -> list[str]:
+        """Return the names of gated commands that would pass the gate right now for *change_id*."""
+        return sorted(
+            command
+            for command, (phase, checksum) in self.COMMAND_GATES.items()
+            if not gate_command(self.root, change_id, phase, check_checksum=checksum)
+        )
+
+
 def guard_repository(root: Path, *, require_active_change: bool = False, strict_state: bool = False) -> list[Finding]:
     findings = [finding for finding in validate(root) if finding.severity == "error"]
     if findings:
@@ -1805,19 +1997,21 @@ def print_phase(root: Path, change_id: str) -> int:
         return print_findings(root, findings)
 
     declared = declared_workflow_phase(root, change_id)
-    inferred = workflow_state(root, change_id)
+    artifact_phase = infer_phase_from_artifacts(root, change_id)
+    state = workflow_state(root, change_id)
 
     print(f"SDD phase: {change_id}")
-    print(f"- declared: {declared.value if declared else 'not-recorded'}")
-    print(f"- inferred: {inferred.phase.value}")
+    print(f"- declared:  {declared.value if declared else 'not-recorded'}")
+    print(f"- artifacts: {artifact_phase.value}")
+    print(f"- effective: {state.phase.value}")
 
-    if declared is not None and declared != inferred.phase:
+    if declared is not None and declared != artifact_phase:
         declared_order = PHASE_ORDER.get(declared, 0)
-        inferred_order = PHASE_ORDER.get(inferred.phase, 0)
-        drift = "ahead" if declared_order > inferred_order else "behind"
-        print(f"- drift: declared is {drift} of inferred")
+        artifact_order = PHASE_ORDER.get(artifact_phase, 0)
+        drift = "ahead" if declared_order > artifact_order else "behind"
+        print(f"- drift: declared is {drift} of artifact phase")
 
-    print(f"- next: {inferred.next_action}")
+    print(f"- next: {state.next_action}")
     return 0
 
 

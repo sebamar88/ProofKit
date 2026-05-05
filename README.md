@@ -178,6 +178,25 @@ if not blocked.ok:
 
 `SDDWorkflow.sync_specs()` and `SDDWorkflow.archive()` refuse to run unless the current phase permits them. That is the difference between SSD helpers and SSD enforcement.
 
+## Hard Enforcement
+
+SSD-Core can also enforce governance at git/CI boundaries:
+
+```text
+ssd-core guard --root my-app --require-active-change
+ssd-core install-hooks --root my-app
+```
+
+`guard` fails when the repository foundation is invalid, a workflow is blocked, an archived delta was not synced into living specs, or the policy requires an active `.sdd/changes/*` record and none exists.
+
+`install-hooks` writes a pre-commit hook that runs:
+
+```text
+ssd-core guard --require-active-change
+```
+
+That makes ungoverned commits fail locally. CI can run the same `guard` command to make the policy server-side.
+
 ## When To Use It
 
 Use SSD-Core for:
@@ -214,6 +233,8 @@ ssd-core validate --root <path>
 ssd-core status --root <path>
 ssd-core new <change-id> --profile <profile> --title "Human intent" --root <path>
 ssd-core run <change-id> --profile <profile> --title "Human intent" --root <path>
+ssd-core guard --require-active-change --root <path>
+ssd-core install-hooks --root <path>
 ssd-core check <change-id> --root <path>
 ssd-core sync-specs <change-id> --root <path>
 ssd-core archive <change-id> --root <path>
@@ -306,7 +327,7 @@ See:
 
 ## Current Status
 
-Current release: `v0.1.5`
+Current release: `v0.1.6`
 
 Solid in v0.1:
 
@@ -318,6 +339,7 @@ Solid in v0.1:
 - npm package published as `ssd-core`
 - workflow binding through `ssd-core run`
 - importable strict orchestrator through `SDDWorkflow`
+- hard enforcement through `ssd-core guard` and git pre-commit hooks
 
 Deferred to future versions:
 

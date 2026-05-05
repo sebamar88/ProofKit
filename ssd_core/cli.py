@@ -4,7 +4,7 @@ import argparse
 import json
 import re
 import shutil
-import sys
+import shlex
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Iterable, Protocol
 
 
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 
 REQUIRED_DIRECTORIES = [
     ".sdd",
@@ -758,12 +758,8 @@ def validate_change_id(change_id: str) -> list[Finding]:
     return []
 
 
-def check_change(root: Path, change_id: str) -> list[Finding]:
-    findings = validate_change_id(change_id)
-    if findings:
-        return findings
-
-    change_dir = change_directory(root, change_id)
+def check_change_artifacts(root: Path, change_dir: Path, change_id: str) -> list[Finding]:
+    findings: list[Finding] = []
     if not change_dir.is_dir():
         return [Finding("error", change_dir, "change does not exist")]
 
@@ -805,6 +801,13 @@ def check_change(root: Path, change_id: str) -> list[Finding]:
     return findings
 
 
+def check_change(root: Path, change_id: str) -> list[Finding]:
+    findings = validate_change_id(change_id)
+    if findings:
+        return findings
+    return check_change_artifacts(root, change_directory(root, change_id), change_id)
+
+
 def print_check(root: Path, change_id: str) -> int:
     findings = check_change(root, change_id)
     if not findings:
@@ -817,12 +820,36 @@ def print_check(root: Path, change_id: str) -> int:
     return 1
 
 
+def change_has_delta_spec(change_dir: Path) -> bool:
+    return (change_dir / "delta-spec.md").is_file()
+
+
+def living_spec_path(root: Path, change_id: str) -> Path:
+    return root / ".sdd" / "specs" / change_id / "spec.md"
+
+
+def validate_spec_sync(root: Path, change_dir: Path, change_id: str) -> list[Finding]:
+    if change_has_delta_spec(change_dir) and not living_spec_path(root, change_id).is_file():
+        return [
+            Finding(
+                "error",
+                living_spec_path(root, change_id),
+                "living spec must be synced before archive",
+            )
+        ]
+    return []
+
+
 def archive_change(root: Path, change_id: str) -> list[Finding]:
     findings = check_change(root, change_id)
     if findings:
         return findings
 
     source = change_directory(root, change_id)
+    spec_findings = validate_spec_sync(root, source, change_id)
+    if spec_findings:
+        return spec_findings
+
     archive_root = root / ".sdd" / "archive"
     if not archive_root.is_dir():
         return [Finding("error", archive_root, "archive directory is missing")]
@@ -908,6 +935,13 @@ def archived_change_directory(root: Path, change_id: str) -> Path | None:
         return None
     matches = sorted(path for path in archive_root.glob(f"*-{change_id}") if path.is_dir())
     return matches[-1] if matches else None
+
+
+def archived_change_id(archive_dir: Path) -> str:
+    match = re.match(r"^\d{4}-\d{2}-\d{2}-(?P<change_id>[a-z0-9][a-z0-9-]*)$", archive_dir.name)
+    if match:
+        return match.group("change_id")
+    return archive_dir.name
 
 
 def artifact_status(change_dir: Path, filename: str) -> tuple[str, Finding | None]:
@@ -1140,6 +1174,78 @@ class SDDWorkflow:
         return WorkflowResult(self.state(change_id), [])
 
 
+def guard_repository(root: Path, *, require_active_change: bool = False) -> list[Finding]:
+    findings = [finding for finding in validate(root) if finding.severity == "error"]
+    if findings:
+        return findings
+
+    active_changes = active_change_directories(root)
+    if require_active_change and not active_changes:
+        findings.append(
+            Finding(
+                "error",
+                root / ".sdd" / "changes",
+                "active SDD change is required by guard policy",
+            )
+        )
+
+    for change_dir in active_changes:
+        state = workflow_state(root, change_dir.name)
+        if state.is_blocked:
+            findings.extend(state.findings)
+
+    archive_root = root / ".sdd" / "archive"
+    if archive_root.is_dir():
+        for archive_dir in sorted(path for path in archive_root.iterdir() if path.is_dir()):
+            change_id = archived_change_id(archive_dir)
+            findings.extend(check_change_artifacts(root, archive_dir, change_id))
+            findings.extend(validate_spec_sync(root, archive_dir, change_id))
+
+    return findings
+
+
+def print_guard(root: Path, *, require_active_change: bool = False) -> int:
+    findings = guard_repository(root, require_active_change=require_active_change)
+    if not findings:
+        print("SDD guard passed.")
+        return 0
+
+    print("SDD guard blocked.")
+    for finding in findings:
+        print(finding.format(root))
+    return 1
+
+
+def pre_commit_hook_text(root: Path) -> str:
+    root_arg = root.as_posix()
+    command = f"ssd-core guard --root {shlex.quote(root_arg)} --require-active-change"
+    return "\n".join(
+        [
+            "#!/bin/sh",
+            "# Generated by SSD-Core. Edit with care.",
+            command,
+            "",
+        ]
+    )
+
+
+def install_hooks(root: Path) -> list[Finding]:
+    git_dir = root / ".git"
+    if not git_dir.is_dir():
+        return [Finding("error", git_dir, "git repository is required to install hooks")]
+
+    hooks_dir = git_dir / "hooks"
+    hooks_dir.mkdir(exist_ok=True)
+    hook_path = hooks_dir / "pre-commit"
+    hook_path.write_text(pre_commit_hook_text(root), encoding="utf-8")
+    try:
+        hook_path.chmod(0o755)
+    except OSError:
+        pass
+    print(f"Installed SSD-Core pre-commit hook: {hook_path.as_posix()}")
+    return []
+
+
 def print_workflow(root: Path, state: WorkflowState) -> int:
     print("SDD workflow")
     print(f"- root: {root}")
@@ -1328,6 +1434,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
+    guard_parser = subcommands.add_parser("guard", help="enforce SSD-Core repository governance for hooks or CI")
+    guard_parser.add_argument(
+        "--require-active-change",
+        action="store_true",
+        help="fail when no active .sdd change exists",
+    )
+    guard_parser.add_argument(
+        "--root",
+        default=".",
+        help="repository root; defaults to the current directory",
+    )
+
+    hooks_parser = subcommands.add_parser("install-hooks", help="install SSD-Core git enforcement hooks")
+    hooks_parser.add_argument(
+        "--root",
+        default=".",
+        help="repository root; defaults to the current directory",
+    )
+
     return parser
 
 
@@ -1383,6 +1508,17 @@ def main(argv: list[str] | None = None) -> int:
         root = Path(args.root).resolve()
         state = run_workflow(root, args.change_id, args.profile, args.title, create=not args.no_create)
         return print_workflow(root, state)
+
+    if args.command == "guard":
+        root = Path(args.root).resolve()
+        return print_guard(root, require_active_change=args.require_active_change)
+
+    if args.command == "install-hooks":
+        root = Path(args.root).resolve()
+        findings = install_hooks(root)
+        if findings:
+            return print_findings(root, findings)
+        return 0
 
     parser.error(f"unsupported command: {args.command}")
     return 2

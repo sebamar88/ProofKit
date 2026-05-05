@@ -154,6 +154,9 @@ def release_check(*, keep_temp: bool) -> None:
         run([str(venv_cli()), "init", "--root", str(SMOKE_ROOT)])
         run([str(venv_cli()), "validate", "--root", str(SMOKE_ROOT)])
         run([str(venv_cli()), "run", "release-gate", "--profile", "standard", "--title", "Release gate", "--root", str(SMOKE_ROOT)])
+        run([str(venv_cli()), "guard", "--root", str(SMOKE_ROOT), "--require-active-change"])
+        (SMOKE_ROOT / ".git").mkdir()
+        run([str(venv_cli()), "install-hooks", "--root", str(SMOKE_ROOT)])
 
         for adapter in ["codex", "claude-code", "gemini-cli", "opencode", "qwen-code", "generic-markdown"]:
             adapter_path = SMOKE_ROOT / ".sdd" / "adapters" / f"{adapter}.json"
@@ -210,6 +213,9 @@ def release_check(*, keep_temp: bool) -> None:
                 ],
                 cwd=NPM_PROJECT_ROOT,
             )
+            run([node, str(npm_launcher), "guard", "--root", str(NPM_RELATIVE_SMOKE_ROOT), "--require-active-change"], cwd=NPM_PROJECT_ROOT)
+            (NPM_PROJECT_ROOT / NPM_RELATIVE_SMOKE_ROOT / ".git").mkdir()
+            run([node, str(npm_launcher), "install-hooks", "--root", str(NPM_RELATIVE_SMOKE_ROOT)], cwd=NPM_PROJECT_ROOT)
 
             npm_adapter = NPM_SMOKE_ROOT / ".sdd" / "adapters" / "codex.json"
             if not npm_adapter.is_file():

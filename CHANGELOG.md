@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.6 - 2026-05-05
+
+- Added `ssd-core guard` for CI and hook enforcement of repository governance.
+- Added `ssd-core install-hooks` to install a pre-commit hook that blocks commits without an active SDD change.
+- Hardened `archive` so changes with `delta-spec.md` cannot archive until living specs are synced.
+- Extended release checks to smoke-test guard and hook installation from wheel and npm wrapper installs.
+
 ## 0.1.5 - 2026-05-05
 
 - Added `SDDWorkflow` as the importable strict orchestrator API for tools, adapters, and IDE integrations.

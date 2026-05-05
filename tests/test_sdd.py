@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import shutil
 import tomllib
 import uuid
 import unittest
@@ -21,7 +22,7 @@ class SddToolingTests(unittest.TestCase):
         return [finding.message for finding in findings]
 
     def test_version_is_defined(self) -> None:
-        self.assertEqual(sdd.VERSION, "0.1.5")
+        self.assertEqual(sdd.VERSION, "0.1.6")
 
     def test_distribution_versions_match(self) -> None:
         pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -264,6 +265,33 @@ class SddToolingTests(unittest.TestCase):
         archives = list((root / ".sdd" / "archive").glob(f"*-{change_id}"))
         self.assertEqual(len(archives), 1)
 
+    def test_archive_rejects_verified_change_before_spec_sync(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"archive-before-sync-{uuid.uuid4().hex}"
+        change_id = "document-example"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            self.assertEqual(sdd.create_change(root, change_id, "standard", "Document example"), [])
+
+        change_dir = root / ".sdd" / "changes" / change_id
+        for filename in ["proposal.md", "delta-spec.md", "design.md", "tasks.md", "archive.md"]:
+            path = change_dir / filename
+            path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
+
+        tasks_path = change_dir / "tasks.md"
+        tasks_path.write_text(tasks_path.read_text(encoding="utf-8").replace("- [ ]", "- [x]"), encoding="utf-8")
+
+        verification_path = change_dir / "verification.md"
+        verification_text = verification_path.read_text(encoding="utf-8")
+        verification_text = verification_text.replace("status: draft", "status: verified")
+        verification_text = verification_text.replace("pending verification evidence", "unit test evidence")
+        verification_text = verification_text.replace("not-run", "pass")
+        verification_path.write_text(verification_text, encoding="utf-8")
+
+        findings = sdd.archive_change(root, change_id)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("living spec must be synced before archive", findings[0].message)
+
     def test_run_workflow_creates_missing_change_and_reports_propose_phase(self) -> None:
         root = REPO_ROOT / ".tmp-tests" / f"workflow-create-{uuid.uuid4().hex}"
 
@@ -353,6 +381,8 @@ class SddToolingTests(unittest.TestCase):
         self.assertIs(ssd_core.SDDWorkflow, sdd.SDDWorkflow)
         self.assertIs(ssd_core.WorkflowPhase, sdd.WorkflowPhase)
         self.assertIs(ssd_core.WorkflowFailureKind, sdd.WorkflowFailureKind)
+        self.assertIs(ssd_core.guard_repository, sdd.guard_repository)
+        self.assertIs(ssd_core.install_hooks, sdd.install_hooks)
 
     def test_sdd_workflow_blocks_sync_before_required_phase(self) -> None:
         root = REPO_ROOT / ".tmp-tests" / f"workflow-api-block-{uuid.uuid4().hex}"
@@ -410,6 +440,67 @@ class SddToolingTests(unittest.TestCase):
         self.assertTrue(archived.ok)
         self.assertEqual(archived.state.phase, sdd.WorkflowPhase.ARCHIVED)
         self.assertFalse(change_dir.exists())
+
+    def test_guard_requires_active_change_when_policy_enabled(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"guard-require-active-{uuid.uuid4().hex}"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+
+        findings = sdd.guard_repository(root, require_active_change=True)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("active SDD change is required", findings[0].message)
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.create_change(root, "guard-login", "standard", "Guard login"), [])
+
+        self.assertEqual(sdd.guard_repository(root, require_active_change=True), [])
+
+    def test_guard_detects_manually_archived_change_without_spec_sync(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"guard-archive-sync-{uuid.uuid4().hex}"
+        change_id = "guard-login"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
+
+        change_dir = root / ".sdd" / "changes" / change_id
+        for filename in ["proposal.md", "delta-spec.md", "design.md", "tasks.md", "archive.md"]:
+            path = change_dir / filename
+            path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
+
+        tasks_path = change_dir / "tasks.md"
+        tasks_path.write_text(tasks_path.read_text(encoding="utf-8").replace("- [ ]", "- [x]"), encoding="utf-8")
+
+        verification_path = change_dir / "verification.md"
+        verification_text = verification_path.read_text(encoding="utf-8")
+        verification_text = verification_text.replace("status: draft", "status: verified")
+        verification_text = verification_text.replace("pending verification evidence", "unit test evidence")
+        verification_text = verification_text.replace("not-run", "pass")
+        verification_path.write_text(verification_text, encoding="utf-8")
+
+        archive_dir = root / ".sdd" / "archive" / f"2026-05-05-{change_id}"
+        shutil.copytree(change_dir, archive_dir)
+        shutil.rmtree(change_dir)
+
+        findings = sdd.guard_repository(root)
+        self.assertTrue(any("living spec must be synced before archive" in finding.message for finding in findings))
+
+    def test_install_hooks_writes_pre_commit_guard(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"hooks-{uuid.uuid4().hex}"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+
+        (root / ".git").mkdir()
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.install_hooks(root), [])
+
+        hook_path = root / ".git" / "hooks" / "pre-commit"
+        self.assertTrue(hook_path.is_file())
+        hook_text = hook_path.read_text(encoding="utf-8")
+        self.assertIn("ssd-core guard", hook_text)
+        self.assertIn("--require-active-change", hook_text)
 
 
 if __name__ == "__main__":

@@ -12,6 +12,8 @@ from .cli import (
     guard_repository,
     install_hooks,
     transition_workflow,
+    validate_verification_evidence,
+    verify_change,
 )
 
 __all__ = [
@@ -26,4 +28,6 @@ __all__ = [
     "guard_repository",
     "install_hooks",
     "transition_workflow",
+    "validate_verification_evidence",
+    "verify_change",
 ]

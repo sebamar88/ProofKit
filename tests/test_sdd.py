@@ -38,7 +38,7 @@ class SddToolingTests(unittest.TestCase):
             self.record_transition(root, change_id, phase)
 
     def test_version_is_defined(self) -> None:
-        self.assertEqual(sdd.VERSION, "0.1.7")
+        self.assertEqual(sdd.VERSION, "0.1.8")
 
     def test_distribution_versions_match(self) -> None:
         pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -270,6 +270,7 @@ class SddToolingTests(unittest.TestCase):
         verification_text = verification_text.replace("status: draft", "status: verified")
         verification_text = verification_text.replace("pending verification evidence", "unit test evidence")
         verification_text = verification_text.replace("not-run", "pass")
+        verification_text = verification_text.replace("Record host-project verification actions.", "pytest -q (exit 0)")
         verification_path.write_text(verification_text, encoding="utf-8")
 
         self.assertEqual(sdd.check_change(root, change_id), [])
@@ -305,6 +306,7 @@ class SddToolingTests(unittest.TestCase):
         verification_text = verification_text.replace("status: draft", "status: verified")
         verification_text = verification_text.replace("pending verification evidence", "unit test evidence")
         verification_text = verification_text.replace("not-run", "pass")
+        verification_text = verification_text.replace("Record host-project verification actions.", "pytest -q (exit 0)")
         verification_path.write_text(verification_text, encoding="utf-8")
 
         self.record_standard_ready_transitions(root, change_id)
@@ -396,6 +398,7 @@ class SddToolingTests(unittest.TestCase):
         verification_text = verification_text.replace("status: draft", "status: verified")
         verification_text = verification_text.replace("pending verification evidence", "unit test evidence")
         verification_text = verification_text.replace("not-run", "pass")
+        verification_text = verification_text.replace("Record host-project verification actions.", "pytest -q (exit 0)")
         verification_path.write_text(verification_text, encoding="utf-8")
 
         self.assertEqual(sdd.workflow_state(root, change_id).phase, sdd.WorkflowPhase.SYNC_SPECS)
@@ -427,6 +430,7 @@ class SddToolingTests(unittest.TestCase):
         verification_text = verification_text.replace("status: draft", "status: verified")
         verification_text = verification_text.replace("pending verification evidence", "unit test evidence")
         verification_text = verification_text.replace("not-run", "pass")
+        verification_text = verification_text.replace("Record host-project verification actions.", "pytest -q (exit 0)")
         verification_path.write_text(verification_text, encoding="utf-8")
 
         state = sdd.workflow_state(root, change_id)
@@ -503,6 +507,7 @@ class SddToolingTests(unittest.TestCase):
         verification_text = verification_text.replace("status: draft", "status: verified")
         verification_text = verification_text.replace("pending verification evidence", "unit test evidence")
         verification_text = verification_text.replace("not-run", "pass")
+        verification_text = verification_text.replace("Record host-project verification actions.", "pytest -q (exit 0)")
         verification_path.write_text(verification_text, encoding="utf-8")
 
         for phase in [
@@ -584,12 +589,114 @@ class SddToolingTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(sdd.install_hooks(root), [])
 
-        hook_path = root / ".git" / "hooks" / "pre-commit"
-        self.assertTrue(hook_path.is_file())
-        hook_text = hook_path.read_text(encoding="utf-8")
-        self.assertIn("ssd-core guard", hook_text)
-        self.assertIn("--require-active-change", hook_text)
-        self.assertIn("--strict-state", hook_text)
+        pre_commit = root / ".git" / "hooks" / "pre-commit"
+        self.assertTrue(pre_commit.is_file())
+        commit_text = pre_commit.read_text(encoding="utf-8")
+        self.assertIn("ssd-core guard", commit_text)
+        self.assertIn("--require-active-change", commit_text)
+        self.assertIn("--strict-state", commit_text)
+
+        pre_push = root / ".git" / "hooks" / "pre-push"
+        self.assertTrue(pre_push.is_file())
+        push_text = pre_push.read_text(encoding="utf-8")
+        self.assertIn("ssd-core guard", push_text)
+        self.assertIn("--strict-state", push_text)
+        self.assertNotIn("--require-active-change", push_text)
+
+    def test_verify_change_blocks_when_task_phase_not_recorded(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"verify-no-task-{uuid.uuid4().hex}"
+        change_id = "guard-login"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
+
+        findings = sdd.verify_change(root, change_id)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("workflow phase must be task", findings[0].message)
+
+    def test_verify_change_blocks_placeholder_evidence(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"verify-placeholder-{uuid.uuid4().hex}"
+        change_id = "guard-login"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
+
+        # Record TASK phase without real evidence so verify_change can be called
+        change_dir = root / ".sdd" / "changes" / change_id
+        for filename in ["proposal.md", "delta-spec.md", "design.md", "archive.md"]:
+            path = change_dir / filename
+            path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
+        tasks_path = change_dir / "tasks.md"
+        tasks_path.write_text(tasks_path.read_text(encoding="utf-8").replace("- [ ]", "- [x]"), encoding="utf-8")
+        tasks_path.write_text(tasks_path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.transition_workflow(root, change_id, sdd.WorkflowPhase.SPECIFY)
+            sdd.transition_workflow(root, change_id, sdd.WorkflowPhase.DESIGN)
+            sdd.transition_workflow(root, change_id, sdd.WorkflowPhase.TASK)
+
+        # verification.md still has placeholder evidence but status: verified
+        verification_path = change_dir / "verification.md"
+        verification_text = verification_path.read_text(encoding="utf-8")
+        verification_text = verification_text.replace("status: draft", "status: verified")
+        verification_path.write_text(verification_text, encoding="utf-8")
+
+        findings = sdd.verify_change(root, change_id)
+        messages = self.finding_messages(findings)
+        self.assertTrue(any("placeholder" in m for m in messages))
+
+    def test_verify_change_records_verify_phase_when_evidence_is_present(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"verify-ok-{uuid.uuid4().hex}"
+        change_id = "guard-login"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
+
+        change_dir = root / ".sdd" / "changes" / change_id
+        for filename in ["proposal.md", "delta-spec.md", "design.md", "archive.md"]:
+            path = change_dir / filename
+            path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
+        tasks_path = change_dir / "tasks.md"
+        tasks_path.write_text(tasks_path.read_text(encoding="utf-8").replace("- [ ]", "- [x]"), encoding="utf-8")
+        tasks_path.write_text(tasks_path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.transition_workflow(root, change_id, sdd.WorkflowPhase.SPECIFY)
+            sdd.transition_workflow(root, change_id, sdd.WorkflowPhase.DESIGN)
+            sdd.transition_workflow(root, change_id, sdd.WorkflowPhase.TASK)
+
+        verification_path = change_dir / "verification.md"
+        verification_text = verification_path.read_text(encoding="utf-8")
+        verification_text = verification_text.replace("status: draft", "status: verified")
+        verification_text = verification_text.replace("pending verification evidence", "all unit tests pass")
+        verification_text = verification_text.replace("not-run", "pass")
+        verification_text = verification_text.replace("Record host-project verification actions.", "pytest -q (exit 0)")
+        verification_path.write_text(verification_text, encoding="utf-8")
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            findings = sdd.verify_change(root, change_id)
+
+        self.assertEqual(findings, [])
+        self.assertEqual(sdd.declared_workflow_phase(root, change_id), sdd.WorkflowPhase.VERIFY)
+
+    def test_validate_verification_evidence_blocks_placeholder_commands_section(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"evidence-placeholder-{uuid.uuid4().hex}"
+        change_id = "guard-login"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
+
+        verification_path = root / ".sdd" / "changes" / change_id / "verification.md"
+        # Default template still has the placeholder Commands line
+        findings = sdd.validate_verification_evidence(verification_path)
+        messages = self.finding_messages(findings)
+        self.assertTrue(any("placeholder" in m for m in messages))
+
+    def test_public_verify_change_is_exported(self) -> None:
+        self.assertIs(ssd_core.verify_change, sdd.verify_change)
+        self.assertIs(ssd_core.validate_verification_evidence, sdd.validate_verification_evidence)
 
 
 if __name__ == "__main__":

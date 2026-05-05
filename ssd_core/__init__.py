@@ -13,6 +13,7 @@ from .cli import (
     WorkflowResult,
     WorkflowState,
     declared_workflow_phase,
+    discover_test_command,
     gate_command,
     guard_repository,
     infer_phase_from_artifacts,
@@ -23,6 +24,7 @@ from .cli import (
     validate_verification_evidence,
     validate_verification_matrix,
     verify_change,
+    write_ci_template,
 )
 
 __all__ = [
@@ -38,6 +40,7 @@ __all__ = [
     "WorkflowResult",
     "WorkflowState",
     "declared_workflow_phase",
+    "discover_test_command",
     "gate_command",
     "guard_repository",
     "infer_phase_from_artifacts",
@@ -48,4 +51,5 @@ __all__ = [
     "validate_verification_evidence",
     "validate_verification_matrix",
     "verify_change",
+    "write_ci_template",
 ]

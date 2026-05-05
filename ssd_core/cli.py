@@ -3,10 +3,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import shlex
 import subprocess
+import sys
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -16,7 +19,47 @@ from pathlib import Path
 from typing import ClassVar, Iterable, Protocol
 
 
-VERSION = "0.6.0"
+VERSION = "0.7.0"
+
+
+# ── Terminal color helpers ───────────────────────────────────────────────────
+
+def _use_color() -> bool:
+    """Return True when the terminal supports ANSI color sequences."""
+    return (
+        hasattr(sys.stdout, "isatty")
+        and sys.stdout.isatty()
+        and not os.environ.get("NO_COLOR")
+        and os.environ.get("TERM") != "dumb"
+    )
+
+
+def _c(code: str, text: str) -> str:
+    return f"\033[{code}m{text}\033[0m" if _use_color() else text
+
+
+def _green(t: str) -> str:  return _c("32", t)
+def _yellow(t: str) -> str: return _c("33", t)
+def _red(t: str) -> str:    return _c("31", t)
+def _cyan(t: str) -> str:   return _c("36", t)
+def _bold(t: str) -> str:   return _c("1",  t)
+def _dim(t: str) -> str:    return _c("2",  t)
+
+
+_PHASE_ICON: dict[str, str] = {
+    "not-started":    "○",
+    "propose":        "◎",
+    "specify":        "◎",
+    "design":         "◎",
+    "task":           "◎",
+    "verify":         "◉",
+    "critique":       "◎",
+    "archive-record": "◎",
+    "sync-specs":     "⟳",
+    "archive":        "⟳",
+    "archived":       "✔",
+    "blocked":        "✗",
+}
 
 REQUIRED_DIRECTORIES = [
     ".sdd",
@@ -948,15 +991,25 @@ def append_execution_evidence_to_verification(root: Path, verification_path: Pat
             relative_log = log_path.relative_to(root).as_posix()
         except ValueError:
             relative_log = str(record["log_path"])
+        dur = record.get("duration_seconds")
+        dur_str = f"; duration `{dur}s`" if dur is not None else ""
+        chk = str(record.get("output_checksum", ""))[:12]
         lines.append(
-            f"- `{record['command']}` exited `{record['exit_code']}`; log `{relative_log}`; checksum `{record['output_checksum']}`"
+            f"- `{record['command']}` exited `{record['exit_code']}`{dur_str}; log `{relative_log}`; sha256 `{chk}...`"
         )
 
     suffix = "\n" if text.endswith("\n") else "\n\n"
     verification_path.write_text(text + suffix + "\n".join(lines) + "\n", encoding="utf-8")
 
 
-def append_execution_evidence(root: Path, change_id: str, command: str, exit_code: int, output: str) -> dict[str, object]:
+def append_execution_evidence(
+    root: Path,
+    change_id: str,
+    command: str,
+    exit_code: int,
+    output: str,
+    duration_seconds: float | None = None,
+) -> dict[str, object]:
     evidence_id = uuid.uuid4().hex
     evidence_dir = evidence_directory(root, change_id)
     evidence_dir.mkdir(parents=True, exist_ok=True)
@@ -965,7 +1018,7 @@ def append_execution_evidence(root: Path, change_id: str, command: str, exit_cod
     log_path = evidence_dir / f"{evidence_id}.log"
     log_path.write_text(output, encoding="utf-8")
 
-    record = {
+    record: dict[str, object] = {
         "schema": "sdd.execution-evidence.v1",
         "id": evidence_id,
         "change_id": change_id,
@@ -977,6 +1030,8 @@ def append_execution_evidence(root: Path, change_id: str, command: str, exit_cod
         "log_path": log_path.relative_to(root).as_posix(),
         "output_checksum": output_checksum,
     }
+    if duration_seconds is not None:
+        record["duration_seconds"] = round(duration_seconds, 3)
 
     evidence_path = execution_evidence_path(root, change_id)
     with evidence_path.open("a", encoding="utf-8") as handle:
@@ -985,6 +1040,7 @@ def append_execution_evidence(root: Path, change_id: str, command: str, exit_cod
 
 
 def run_verification_command(root: Path, change_id: str, command: str, timeout_seconds: int) -> tuple[dict[str, object], Finding | None]:
+    t0 = time.monotonic()
     try:
         completed = subprocess.run(
             command,
@@ -995,25 +1051,29 @@ def run_verification_command(root: Path, change_id: str, command: str, timeout_s
             timeout=timeout_seconds,
             check=False,
         )
+        duration = time.monotonic() - t0
         output = (
             f"$ {command}\n"
-            f"exit_code: {completed.returncode}\n\n"
+            f"exit_code: {completed.returncode}\n"
+            f"duration: {duration:.3f}s\n\n"
             f"--- stdout ---\n{completed.stdout}\n"
             f"--- stderr ---\n{completed.stderr}"
         )
-        record = append_execution_evidence(root, change_id, command, completed.returncode, output)
+        record = append_execution_evidence(root, change_id, command, completed.returncode, output, duration)
         if completed.returncode != 0:
-            return record, Finding("error", evidence_directory(root, change_id), f"verification command failed: {command}")
+            return record, Finding("error", evidence_directory(root, change_id), f"verification command failed (exit {completed.returncode}): {command}")
         return record, None
     except subprocess.TimeoutExpired as exc:
+        duration = time.monotonic() - t0
         output = (
             f"$ {command}\n"
-            f"timeout_seconds: {timeout_seconds}\n\n"
-            f"--- stdout ---\n{exc.stdout or ''}\n"
-            f"--- stderr ---\n{exc.stderr or ''}"
+            f"exit_code: timeout\n"
+            f"duration: {duration:.3f}s\n\n"
+            f"--- stdout ---\n{(exc.stdout or '').strip()}\n"
+            f"--- stderr ---\n{(exc.stderr or '').strip()}"
         )
-        record = append_execution_evidence(root, change_id, command, 124, output)
-        return record, Finding("error", evidence_directory(root, change_id), f"verification command timed out: {command}")
+        record = append_execution_evidence(root, change_id, command, 124, output, duration)
+        return record, Finding("error", evidence_directory(root, change_id), f"verification command timed out after {timeout_seconds}s: {command}")
 
 
 def execution_evidence_records(root: Path, change_id: str) -> tuple[list[dict[str, object]], list[Finding]]:
@@ -1131,20 +1191,84 @@ def verify_change(
         [],
     )
     record_workflow_state(root, new_state, "verify")
-    print(f"Verification recorded: {change_id}")
+    print(_green("\u2714") + f" Verification recorded: {_bold(change_id)}")
     return []
 
 
 def print_check(root: Path, change_id: str) -> int:
     findings = check_change(root, change_id)
     if not findings:
-        print(f"Change {change_id} is ready.")
+        print(_green("\u2714") + f" Change {change_id} is ready.")
         return 0
 
-    print(f"Change {change_id} is not ready.")
+    print(_yellow("\u25ce") + f" Change {change_id} is not ready.")
     for finding in findings:
-        print(finding.format(root))
+        pre = _red("\u2717") if finding.severity == "error" else _yellow("\u26a0")
+        print(pre + " " + finding.format(root))
     return 1
+
+
+# ── Test runner discovery ─────────────────────────────────────────────────────
+
+def discover_test_command(root: Path) -> str | None:
+    """Auto-discover the project's test runner from common signal files.
+
+    Checks for pytest, npm, cargo, go, and Makefile in that priority order.
+    Returns the command string or None when no runner is detected.
+    """
+    # Python: pytest
+    has_pytest_config = (
+        (root / "pytest.ini").exists()
+        or (root / "setup.cfg").exists()
+        or _pyproject_has_pytest(root)
+    )
+    if has_pytest_config and shutil.which("pytest"):
+        return "python -m pytest"
+    if has_pytest_config and shutil.which("python"):
+        return "python -m pytest"
+
+    # Node.js: npm test
+    pkg_json = root / "package.json"
+    if pkg_json.exists():
+        try:
+            pkg = json.loads(pkg_json.read_text(encoding="utf-8"))
+            scripts = pkg.get("scripts", {}) or {}
+            if isinstance(scripts, dict) and "test" in scripts:
+                return "npm test"
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # Rust: cargo test
+    if (root / "Cargo.toml").exists() and shutil.which("cargo"):
+        return "cargo test"
+
+    # Go: go test
+    if (root / "go.mod").exists() and shutil.which("go"):
+        return "go test ./..."
+
+    # Makefile with a test target
+    makefile = root / "Makefile"
+    if makefile.exists():
+        try:
+            content = makefile.read_text(encoding="utf-8")
+            if re.search(r"^test:", content, re.MULTILINE):
+                return "make test"
+        except OSError:
+            pass
+
+    return None
+
+
+def _pyproject_has_pytest(root: Path) -> bool:
+    """Return True when pyproject.toml declares a [tool.pytest.ini_options] section."""
+    pyproject = root / "pyproject.toml"
+    if not pyproject.exists():
+        return False
+    try:
+        content = pyproject.read_text(encoding="utf-8")
+        return "[tool.pytest" in content or "[tool.setuptools" in content
+    except OSError:
+        return False
 
 
 def change_has_delta_spec(change_dir: Path) -> bool:
@@ -1203,7 +1327,7 @@ def archive_change(root: Path, change_id: str) -> list[Finding]:
         WorkflowState(change_id, WorkflowPhase.ARCHIVED, summary.profile, f"Review archived evidence at {destination.as_posix()}.", []),
         "archive",
     )
-    print(f"Archived change: {destination.as_posix()}")
+    print(_green("\u2714") + f" Archived change: {_bold(destination.relative_to(root).as_posix())}")
     return []
 
 
@@ -1269,7 +1393,7 @@ def sync_specs(root: Path, change_id: str) -> list[Finding]:
         append_sync_record(archive_path, spec_path, root)
 
     record_workflow_state(root, _infer_workflow_state(root, change_id), "sync-specs")
-    print(f"Synced living spec: {spec_path.as_posix()}")
+    print(_green("\u2714") + f" Synced living spec: {_bold(spec_path.relative_to(root).as_posix())}")
     return []
 
 
@@ -2328,12 +2452,13 @@ def print_guard(
         require_execution_evidence=require_execution_evidence,
     )
     if not findings:
-        print("SDD guard passed.")
+        print(_green("\u2714") + " " + _bold("SDD guard passed."))
         return 0
 
-    print("SDD guard blocked.")
+    print(_red("\u2717") + " " + _bold("SDD guard blocked."))
     for finding in findings:
-        print(finding.format(root))
+        pre = _red("  \u2717") if finding.severity == "error" else _yellow("  \u26a0")
+        print(pre + " " + finding.format(root))
     return 1
 
 
@@ -2409,17 +2534,18 @@ def print_log(root: Path, change_id: str) -> int:
         print(f"No recorded history entries for: {change_id}")
         return 1
 
-    print(f"SDD log: {change_id}")
-    print(f"- profile: {entry.get('profile', 'unknown')}")
-    print(f"- phase:   {entry.get('phase', 'unknown')}")
+    print(_bold(f"SDD log: {change_id}"))
+    print(f"  profile : {entry.get('profile', 'unknown')}")
+    print(f"  phase   : {_cyan(str(entry.get('phase', 'unknown')))}")
     print("")
-    print("History:")
+    print(_bold("History:"))
     for record in history:
         phase = record.get("phase", "?")
         action = record.get("action", "?")
         at = record.get("at", "?")
         checksum = str(record.get("checksum", ""))[:8] or "(none)"
-        print(f"  [{at}] {phase:20s} via {action:12s} checksum:{checksum}")
+        icon = _PHASE_ICON.get(str(phase), " ")
+        print(f"  {_dim(at)} {icon} {_cyan(f'{phase:<20}')} via {_dim(action):<14} sha256:{_dim(checksum)}")
     return 0
 
 
@@ -2432,49 +2558,60 @@ def print_phase(root: Path, change_id: str) -> int:
     artifact_phase = infer_phase_from_artifacts(root, change_id)
     state = workflow_state(root, change_id)
 
-    print(f"SDD phase: {change_id}")
-    print(f"- declared:  {declared.value if declared else 'not-recorded'}")
-    print(f"- artifacts: {artifact_phase.value}")
-    print(f"- effective: {state.phase.value}")
+    print(_bold(f"SDD phase: {change_id}"))
+    print(f"  declared  : {_cyan(declared.value) if declared else _dim('not-recorded')}")
+    print(f"  artifacts : {_cyan(artifact_phase.value)}")
+    eff_icon = _PHASE_ICON.get(state.phase.value, " ")
+    if state.is_blocked:
+        print(f"  effective : {_red(eff_icon + ' ' + state.phase.value)}")
+    elif state.phase == WorkflowPhase.ARCHIVED:
+        print(f"  effective : {_green(eff_icon + ' ' + state.phase.value)}")
+    else:
+        print(f"  effective : {_yellow(eff_icon + ' ' + state.phase.value)}")
 
     if declared is not None and declared != artifact_phase:
         declared_order = PHASE_ORDER.get(declared, 0)
         artifact_order = PHASE_ORDER.get(artifact_phase, 0)
         drift = "ahead" if declared_order > artifact_order else "behind"
-        print(f"- drift: declared is {drift} of artifact phase")
+        print(f"  drift     : declared is {_yellow(drift)} of artifact phase")
 
-    print(f"- next: {state.next_action}")
+    print(f"  next      : {state.next_action}")
     return 0
 
 
 def print_workflow(root: Path, state: WorkflowState) -> int:
-    print("SDD workflow")
-    print(f"- root: {root}")
-    print(f"- change: {state.change_id}")
-    print(f"- profile: {state.profile}")
-    print(f"- phase: {state.phase.value}")
-    print(f"- next: {state.next_action}")
+    icon = _PHASE_ICON.get(state.phase.value, " ")
+    phase_str = _red(icon + " " + state.phase.value) if state.is_blocked else _cyan(icon + " " + state.phase.value)
+    print(_bold("SDD workflow"))
+    print(f"  root    : {_dim(str(root))}")
+    print(f"  change  : {state.change_id}")
+    print(f"  profile : {state.profile}")
+    print(f"  phase   : {phase_str}")
+    print(f"  next    : {state.next_action}")
 
     if state.findings:
         print("")
-        print("Findings:")
+        print(_bold("Findings:"))
         for finding in state.findings:
-            print(finding.format(root))
+            pre = _red("  \u2717") if finding.severity == "error" else _yellow("  \u26a0")
+            print(pre + " " + finding.format(root))
 
     return 1 if state.is_blocked else 0
 
 
 def print_transition(root: Path, state: WorkflowState) -> int:
     if state.is_blocked:
-        print("SDD transition blocked.")
+        print(_red("\u2717") + " " + _bold("SDD transition blocked."))
         for finding in state.findings:
-            print(finding.format(root))
+            pre = _red("  \u2717") if finding.severity == "error" else _yellow("  \u26a0")
+            print(pre + " " + finding.format(root))
         return 1
 
-    print("SDD transition recorded.")
-    print(f"- change: {state.change_id}")
-    print(f"- phase: {state.phase.value}")
-    print(f"- registry: {workflow_registry_path(root).relative_to(root).as_posix()}")
+    icon = _PHASE_ICON.get(state.phase.value, " ")
+    print(_green("\u2714") + " " + _bold("SDD transition recorded."))
+    print(f"  change   : {state.change_id}")
+    print(f"  phase    : {_cyan(icon + ' ' + state.phase.value)}")
+    print(f"  registry : {workflow_registry_path(root).relative_to(root).as_posix()}")
     return 0
 
 
@@ -2483,29 +2620,30 @@ def print_status(root: Path) -> int:
     errors = [finding for finding in findings if finding.severity == "error"]
     warnings = [finding for finding in findings if finding.severity == "warning"]
 
-    print("SDD status")
-    print(f"- root: {root}")
-    print(f"- validation: {'fail' if errors else 'pass'}")
-    print(f"- active changes: {len(changes)}")
+    val_str = _red("fail") if errors else _green("pass")
+    print(_bold("SDD status"))
+    print(f"  root            : {_dim(str(root))}")
+    print(f"  validation      : {val_str}")
+    print(f"  active changes  : {len(changes)}")
 
     if changes:
         print("")
-        print("Changes:")
+        print(_bold("Changes:"))
         for change in changes:
-            completeness = "complete" if change.is_complete else "incomplete"
-            print(f"- {change.change_id} [{change.profile}] {completeness}")
+            icon = _PHASE_ICON.get("archived" if change.is_complete else "propose", " ")
+            completeness = _green("complete") if change.is_complete else _yellow("incomplete")
+            print(f"  {icon} {_bold(change.change_id)} [{_dim(change.profile)}] {completeness}")
             if change.present:
-                present = ", ".join(change.present)
-                print(f"  present: {present}")
+                print(f"    present : {', '.join(change.present)}")
             if change.missing:
-                missing = ", ".join(change.missing)
-                print(f"  missing: {missing}")
+                print(f"    missing : {_red(', '.join(change.missing))}")
 
     if findings:
         print("")
-        print("Findings:")
+        print(_bold("Findings:"))
         for finding in findings:
-            print(finding.format(root))
+            pre = _red("  \u2717") if finding.severity == "error" else _yellow("  \u26a0")
+            print(pre + " " + finding.format(root))
 
     return 1 if errors else 0
 
@@ -2539,23 +2677,103 @@ def create_change(root: Path, change_id: str, profile: str, title: str | None) -
         path.write_text(artifact_body(filename, change_id, resolved_title, profile, today), encoding="utf-8")
 
     record_workflow_state(root, workflow_state(root, change_id), "new")
-    print(f"Created change: {change_dir.as_posix()}")
+    print(_green("\u2714") + f" Created change: {_bold(change_dir.relative_to(root).as_posix())}")
     for filename in PROFILE_ARTIFACTS[profile]:
-        print(f"- {filename}")
+        print("  " + _dim("-") + f" {filename}")
     return []
 
 
 def print_findings(root: Path, findings: Iterable[Finding]) -> int:
     findings = list(findings)
     if not findings:
-        print("SDD validation passed.")
+        print(_green("\u2714") + " SDD validation passed.")
         return 0
 
     for finding in findings:
-        print(finding.format(root))
+        if finding.severity == "error":
+            print(_red("\u2717") + " " + finding.format(root))
+        elif finding.severity == "warning":
+            print(_yellow("\u26a0") + " " + finding.format(root))
+        else:
+            print(finding.format(root))
 
     has_error = any(finding.severity == "error" for finding in findings)
     return 1 if has_error else 0
+
+
+# ── CI template ──────────────────────────────────────────────────────────────
+
+_GITHUB_ACTIONS_TEMPLATE = """\
+name: SDD Governance Guard
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  sdd-guard:
+    name: SDD governance check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install SDD-Core
+        run: pip install ssd-core
+
+      - name: SDD governance guard
+        run: ssd-core guard --root . --strict-state
+
+      # Uncomment to require passing execution evidence for verified changes:
+      # - name: SDD evidence guard
+      #   run: ssd-core guard --root . --strict-state --require-execution-evidence
+"""
+
+_GITLAB_CI_TEMPLATE = """\
+sdd-governance-guard:
+  stage: test
+  image: python:3.11-slim
+  script:
+    - pip install ssd-core
+    - ssd-core guard --root . --strict-state
+  # Uncomment to require passing execution evidence:
+  # - ssd-core guard --root . --strict-state --require-execution-evidence
+"""
+
+_CI_TEMPLATES: dict[str, tuple[str, str]] = {
+    "github-actions": (_GITHUB_ACTIONS_TEMPLATE, ".github/workflows/sdd-guard.yml"),
+    "gitlab-ci":      (_GITLAB_CI_TEMPLATE,       ".gitlab-ci-sdd.yml"),
+}
+
+
+def write_ci_template(root: Path, template_type: str) -> list[Finding]:
+    """Write a CI template file for *template_type* under *root*.
+
+    Supported types: ``github-actions`` (default), ``gitlab-ci``.
+    Fails when the destination file already exists.
+    """
+    if template_type not in _CI_TEMPLATES:
+        choices = ", ".join(sorted(_CI_TEMPLATES))
+        return [Finding("error", None, f"unknown CI template type: {template_type}; choose from: {choices}")]
+
+    content, relative_dest = _CI_TEMPLATES[template_type]
+    destination = root / Path(relative_dest)
+    if destination.exists():
+        return [Finding("error", destination, f"CI template already exists: {relative_dest}")]
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(content.lstrip(), encoding="utf-8")
+    print(_green("\u2714") + f" CI template written: {_bold(relative_dest)}")
+    print(f"  type    : {template_type}")
+    print(f"  path    : {relative_dest}")
+    print(f"  next    : commit this file, then enable CI in your repository")
+    return []
 
 
 def run_demo() -> int:
@@ -2580,26 +2798,26 @@ def run_demo() -> int:
     title = "Harden login error handling"
 
     def section(label: str) -> None:
-        print(f"\n── {label}")
+        print(f"\n{_dim('──')} {_bold(label)}")
 
     def ok(msg: str) -> None:
-        print(f"   ✓ {msg}")
+        print(f"   {_green('✓')} {msg}")
 
     def fail(what: str, findings: list[Finding], root: Path) -> int:
-        print(f"   ✗ {what}")
+        print(f"   {_red('✗')} {what}")
         for f in findings:
-            print(f"     {f.format(root)}")
+            print(f"     {_red('→')} {f.format(root)}")
         return 1
 
     with tempfile.TemporaryDirectory(prefix="sdd-demo-") as tmpdir:
         root = Path(tmpdir)
 
-        print("SSD-Core — AI Development Governance Engine")
-        print("=" * 52)
+        print(_bold("SSD-Core — AI Development Governance Engine"))
+        print(_dim("=" * 52))
         print("Problem: AI agents produce code but lose intent, skip verification,")
         print("         and claim completion without evidence.")
         print("Solution: a governance layer that enforces the protocol automatically.")
-        print(f"\nTemp root: {root}")
+        print(f"\n{_dim('Temp root:')} {_dim(str(root))}")
 
         # ── Phase 0: init ─────────────────────────────────────────────
         section("ssd-core init  (one-time repository setup)")
@@ -2687,7 +2905,7 @@ def run_demo() -> int:
 
         # ── Phase 7: verify with real execution evidence ──────────────
         section(f"ssd-core verify {change_id} --command 'echo tests-pass'")
-        print("   (captures stdout/stderr, SHA-256 checksums output log)")
+        print(f"   {_dim('(captures stdout/stderr, SHA-256 checksums output log, records timing)')}")
         findings = verify_change(root, change_id, ["echo tests-pass"])
         if findings:
             return fail("verify failed", findings, root)
@@ -2709,7 +2927,7 @@ def run_demo() -> int:
             archived = next(p for p in (root / ".sdd" / "archive").iterdir() if p.is_dir())
             ok(f"Change closed → .sdd/archive/{archived.name}/  ({loop_steps} step(s))")
         else:
-            return fail("expected archived", r.step.findings, root)
+            return fail("expected archived", r.step.blocking_findings, root)
 
         # ── Final: validate ───────────────────────────────────────────
         section("ssd-core validate  (full repository integrity check)")
@@ -2719,18 +2937,19 @@ def run_demo() -> int:
         ok("Repository governance passed — zero errors")
 
     print()
-    print("=" * 52)
-    print("Demo complete. Temp directory cleaned up.")
+    print(_dim("=" * 52))
+    print(_bold("Demo complete.") + " Temp directory cleaned up.")
     print()
-    print("What the engine prevented:")
-    print("  → Hallucinated completion — archive required checksummed evidence")
-    print("  → Phase skipping — ALLOWED_TRANSITIONS enforced every step")
-    print("  → Stale state — state.json required before gated commands ran")
-    print("  → Ungoverned commits — guard + install-hooks can enforce this in CI")
+    print(_bold("What the engine prevented:"))
+    print(f"  {_red('→')} Hallucinated completion — archive required checksummed evidence")
+    print(f"  {_red('→')} Phase skipping — ALLOWED_TRANSITIONS enforced every step")
+    print(f"  {_red('→')} Stale state — state.json required before gated commands ran")
+    print(f"  {_red('→')} Ungoverned commits — guard + install-hooks can enforce this in CI")
     print()
-    print("Next:")
-    print("  ssd-core init --root <your-repo>")
-    print("  ssd-core auto <change-id> --loop")
+    print(_bold("Next:"))
+    print(f"  {_cyan('ssd-core init --root <your-repo>')}")
+    print(f"  {_cyan('ssd-core auto <change-id> --loop')}")
+    print(f"  {_cyan('ssd-core ci-template --root <your-repo>')}")
     return 0
 
 
@@ -2784,13 +3003,15 @@ def _auto_advance(root: Path, change_id: str) -> "AutoStep":
             key=lambda t: PHASE_ORDER.get(t, 0),
             default=None,
         )
-        if target == WorkflowPhase.SYNC_SPECS:
-            findings = sync_specs(root, change_id)
-            return AutoStep(executed_command=None if findings else f"sync-specs {change_id}", step=current_step())
-        if target == WorkflowPhase.ARCHIVE:
-            findings = archive_change(root, change_id)
-            return AutoStep(executed_command=None if findings else f"archive {change_id}", step=current_step())
         if target is not None:
+            if target == WorkflowPhase.SYNC_SPECS or target == WorkflowPhase.ARCHIVE:
+                # Record the phase transition first; the next execute_next / auto call
+                # enters the direct-execute path above which then runs sync_specs /
+                # archive_change with the correct declared phase in state.json.
+                new_state = transition_workflow(root, change_id, target)
+                if new_state.is_blocked:
+                    return AutoStep(executed_command=None, step=current_step())
+                return AutoStep(executed_command=f"transition {change_id} {target.value}", step=current_step())
             new_state = transition_workflow(root, change_id, target)
             if new_state.is_blocked:
                 return AutoStep(executed_command=None, step=current_step())
@@ -2803,44 +3024,51 @@ def _auto_advance(root: Path, change_id: str) -> "AutoStep":
 def _print_auto_step(root: Path, change_id: str, result: "AutoStep") -> int:
     """Render a single AutoStep result to stdout. Returns exit code."""
     step = result.step
+    icon = _PHASE_ICON.get(step.phase.value, " ")
 
     if result.executed_command:
-        print(f"→ Executed: {result.executed_command}")
+        print(_cyan("\u2192") + " Executed: " + _bold(result.executed_command))
 
-    print(f"→ phase: {step.phase.value}")
-
-    if step.is_complete:
-        print("  Change is complete (archived).")
+    if step.phase == WorkflowPhase.ARCHIVED:
+        print(_green(icon) + " " + _bold(f"phase: {step.phase.value}"))
+        print("  " + _green("Change is complete (archived)."))
         return 0
 
     if step.phase == WorkflowPhase.NOT_STARTED:
+        print(_dim(icon) + f" phase: {step.phase.value}")
         print(f"  {step.next_action}")
         return 0
 
     if step.is_blocked:
-        print("  Blocked:")
+        print(_red(icon) + " " + _bold(f"phase: {step.phase.value}") + " " + _red("[BLOCKED]"))
         for f in step.blocking_findings:
-            print(f"  {f.format(root)}")
+            print("  " + _red("\u2717") + " " + f.format(root))
         return 1
 
     if step.phase == WorkflowPhase.VERIFY:
+        print(_yellow(icon) + " " + _bold(f"phase: {step.phase.value}") + " " + _yellow("[needs command]"))
         print(f"  {step.next_action}")
-        print(f"  Run: ssd-core verify {change_id} --command '<your-test-command>'")
+        print(f"  " + _cyan(f"Run: ssd-core verify {change_id} --command '<your-test-command>'"))
+        discovered = discover_test_command(root)
+        if discovered:
+            print(f"  " + _green(f"Discovered runner: ssd-core verify {change_id} --command '{discovered}'"))
         return 0
 
     artifact_file = _PHASE_ARTIFACT_FILE.get(step.phase)
     if artifact_file:
         change_dir = change_directory(root, change_id)
         artifact_path = (change_dir / artifact_file).relative_to(root).as_posix()
+        print(_yellow(icon) + " " + _bold(f"phase: {step.phase.value}") + " " + _yellow("[needs edit]"))
         print(f"  {step.next_action}")
-        print(f"  Edit: {artifact_path}")
-        print(f"  Re-run `ssd-core auto {change_id}` when done.")
+        print(f"  " + _cyan(f"Edit: {artifact_path}"))
+        print(f"  Re-run " + _dim(f"ssd-core auto {change_id}") + " when done.")
         return 0
 
     # Fallback for any unhandled phase (e.g., SYNC_SPECS after a failed sync).
+    print(_cyan(icon) + " " + _bold(f"phase: {step.phase.value}"))
     print(f"  {step.next_action}")
     if step.suggested_command:
-        print(f"  Run: {step.suggested_command}")
+        print("  " + _cyan(f"Run: {step.suggested_command}"))
     return 0
 
 
@@ -2855,9 +3083,10 @@ def print_auto(root: Path, change_id: str, *, loop: bool = False) -> int:
     if not loop:
         return _print_auto_step(root, change_id, _auto_advance(root, change_id))
 
-    print(f"SSD-Core auto loop: {change_id}")
-    print("-" * 40)
+    print(_bold(f"SSD-Core auto loop: {change_id}"))
+    print(_dim("-" * 44))
     steps_taken = 0
+    result = _auto_advance(root, change_id)  # ensure defined
     while True:
         result = _auto_advance(root, change_id)
         rc = _print_auto_step(root, change_id, result)
@@ -2866,8 +3095,9 @@ def print_auto(root: Path, change_id: str, *, loop: bool = False) -> int:
         # Stop when blocked, complete, human work needed, or nothing executed.
         if rc != 0 or result.step.is_complete or result.needs_human_work or not result.executed_command:
             break
-    print("-" * 40)
-    print(f"Auto loop finished. {steps_taken} step(s) executed.")
+    print(_dim("-" * 44))
+    steps_label = _bold(str(steps_taken))
+    print(f"Auto loop finished. {steps_label} step(s) executed.")
     return 0 if not result.step.is_blocked else 1
 
 
@@ -3023,6 +3253,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="verification command to execute from the repository root; may be repeated",
     )
     verify_parser.add_argument(
+        "--discover",
+        action="store_true",
+        help="auto-discover the project's test runner (pytest, npm test, cargo test, …) and run it",
+    )
+    verify_parser.add_argument(
         "--require-command",
         action="store_true",
         help="fail unless at least one --command is provided",
@@ -3071,6 +3306,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     hooks_parser = subcommands.add_parser("install-hooks", help="install SSD-Core git enforcement hooks")
     hooks_parser.add_argument(
+        "--root",
+        default=".",
+        help="repository root; defaults to the current directory",
+    )
+
+    ci_parser = subcommands.add_parser(
+        "ci-template",
+        help="write a CI workflow template that runs `ssd-core guard` on every push",
+    )
+    ci_parser.add_argument(
+        "--type",
+        default="github-actions",
+        choices=sorted(_CI_TEMPLATES),
+        help="CI provider template to generate; defaults to github-actions",
+    )
+    ci_parser.add_argument(
         "--root",
         default=".",
         help="repository root; defaults to the current directory",
@@ -3150,13 +3401,29 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "verify":
         root = Path(args.root).resolve()
+        commands: list[str] = list(args.command)
+        if args.discover:
+            discovered = discover_test_command(root)
+            if discovered is None:
+                print(_yellow("⚠") + " --discover: no test runner detected; add --command explicitly")
+            else:
+                print(_cyan("→") + f" Discovered test runner: {_bold(discovered)}")
+                if discovered not in commands:
+                    commands.append(discovered)
         findings = verify_change(
             root,
             args.change_id,
-            args.command,
+            commands,
             require_command=args.require_command,
             timeout_seconds=args.timeout,
         )
+        if findings:
+            return print_findings(root, findings)
+        return 0
+
+    if args.command == "ci-template":
+        root = Path(args.root).resolve()
+        findings = write_ci_template(root, args.type)
         if findings:
             return print_findings(root, findings)
         return 0

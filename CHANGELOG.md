@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 - 2026-05-05
+
+- Added `ssd-core verify --discover`: auto-detects the project's test runner (pytest, npm test, cargo test, go test, make test) and runs it as the verification command. The discovered command is shown in `ssd-core auto` guidance when the workflow reaches the verify phase.
+- Added `ssd-core ci-template`: writes a plug-and-play CI workflow file under the repository root. Supports `--type github-actions` (default, writes `.github/workflows/sdd-guard.yml`) and `--type gitlab-ci` (writes `.gitlab-ci-sdd.yml`). Fails if the file already exists.
+- Added `write_ci_template` and `discover_test_command` to the public Python API.
+- Added execution timing to evidence records: `run_verification_command` now captures `duration_seconds` in each `sdd.execution-evidence.v1` record and includes it in the log header (`duration: 0.123s`). The evidence line in `verification.md` now includes the duration and shows a 12-char SHA-256 prefix for the output checksum.
+- Added ANSI color and icon output across all CLI commands. Colors are gated by `sys.stdout.isatty()`, `NO_COLOR`, and `TERM=dumb` so CI output stays clean. Key additions: phase icons (`○ ◎ ◉ ✔ ✗ ⟳`) on every phase line, green/yellow/red severity on findings, bold command names and change IDs in success messages.
+- Updated `_print_auto_step`: when the workflow is at the verify phase, also prints the discovered test runner command (if any) as a ready-to-copy suggestion.
+- Updated `run_demo` to use the new color helpers throughout.
+- Fixed `_auto_advance` catch-up path: when the catch-up target is `SYNC_SPECS` or `ARCHIVE`, the engine now correctly records a phase transition first and lets the next iteration execute the actual command. Previously it called `sync_specs` / `archive_change` directly, which failed because those commands require the declared phase to already be recorded as their gate phase in `state.json`.
 
 ## 0.6.0 - 2026-05-05
 

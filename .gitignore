@@ -11,6 +11,7 @@ __pycache__/
 .tmp-wheel/
 .tmp-release-check/
 .tmp-npm*/
+.tmp-workflow*/
 node_modules/
 npm-debug.log*
 build/

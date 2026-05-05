@@ -7,12 +7,13 @@ import shutil
 import sys
 from dataclasses import dataclass
 from datetime import date
+from enum import Enum
 from importlib.resources import files
 from pathlib import Path
 from typing import Iterable, Protocol
 
 
-VERSION = "0.1.3"
+VERSION = "0.1.4"
 
 REQUIRED_DIRECTORIES = [
     ".sdd",
@@ -179,6 +180,34 @@ class ChangeSummary:
     @property
     def is_complete(self) -> bool:
         return not self.missing
+
+
+class WorkflowPhase(str, Enum):
+    NOT_STARTED = "not-started"
+    PROPOSE = "propose"
+    SPECIFY = "specify"
+    DESIGN = "design"
+    TASK = "task"
+    VERIFY = "verify"
+    CRITIQUE = "critique"
+    ARCHIVE_RECORD = "archive-record"
+    SYNC_SPECS = "sync-specs"
+    ARCHIVE = "archive"
+    ARCHIVED = "archived"
+    BLOCKED = "blocked"
+
+
+@dataclass(frozen=True)
+class WorkflowState:
+    change_id: str
+    phase: WorkflowPhase
+    profile: str
+    next_action: str
+    findings: list[Finding]
+
+    @property
+    def is_blocked(self) -> bool:
+        return self.phase == WorkflowPhase.BLOCKED
 
 
 def logical_path(root: Path, value: str) -> Path:
@@ -842,6 +871,178 @@ def sync_specs(root: Path, change_id: str) -> list[Finding]:
     return []
 
 
+def archived_change_directory(root: Path, change_id: str) -> Path | None:
+    archive_root = root / ".sdd" / "archive"
+    if not archive_root.is_dir():
+        return None
+    matches = sorted(path for path in archive_root.glob(f"*-{change_id}") if path.is_dir())
+    return matches[-1] if matches else None
+
+
+def artifact_status(change_dir: Path, filename: str) -> tuple[str, Finding | None]:
+    path = change_dir / filename
+    metadata, error = read_frontmatter(path)
+    if error is not None:
+        return "invalid-frontmatter", Finding("error", path, error)
+    return metadata.get("status", "unknown"), None
+
+
+def workflow_state(root: Path, change_id: str) -> WorkflowState:
+    findings = validate_change_id(change_id)
+    if findings:
+        return WorkflowState(change_id, WorkflowPhase.BLOCKED, "unknown", "Use a kebab-case change id.", findings)
+
+    archived_dir = archived_change_directory(root, change_id)
+    if archived_dir is not None:
+        return WorkflowState(
+            change_id,
+            WorkflowPhase.ARCHIVED,
+            "archived",
+            f"Review archived evidence at {archived_dir.relative_to(root).as_posix()}.",
+            [],
+        )
+
+    change_dir = change_directory(root, change_id)
+    if not change_dir.is_dir():
+        return WorkflowState(
+            change_id,
+            WorkflowPhase.NOT_STARTED,
+            "unknown",
+            "Create the governed change artifacts.",
+            [],
+        )
+
+    summary = summarize_change(change_dir)
+    if summary.profile == "unknown":
+        return WorkflowState(
+            change_id,
+            WorkflowPhase.BLOCKED,
+            summary.profile,
+            "Fix change artifact frontmatter so the profile can be detected.",
+            [Finding("error", change_dir, "could not detect profile")],
+        )
+
+    structural_findings: list[Finding] = []
+    for filename in summary.missing:
+        structural_findings.append(Finding("error", change_dir / filename, "required profile artifact is missing"))
+    for filename in summary.present:
+        status_value, status_finding = artifact_status(change_dir, filename)
+        if status_finding is not None:
+            structural_findings.append(status_finding)
+        elif status_value == "blocked":
+            structural_findings.append(Finding("error", change_dir / filename, "artifact status is blocked"))
+    if structural_findings:
+        return WorkflowState(
+            change_id,
+            WorkflowPhase.BLOCKED,
+            summary.profile,
+            "Resolve blocking artifact findings before continuing.",
+            structural_findings,
+        )
+
+    phase_artifacts = [
+        ("proposal.md", WorkflowPhase.PROPOSE, "Complete proposal.md and set status to ready."),
+        ("delta-spec.md", WorkflowPhase.SPECIFY, "Complete delta-spec.md and set status to ready."),
+        ("design.md", WorkflowPhase.DESIGN, "Complete design.md and set status to ready."),
+        ("tasks.md", WorkflowPhase.TASK, "Complete tasks.md, close all task checkboxes, and set status to ready."),
+        ("verification.md", WorkflowPhase.VERIFY, "Record passing evidence in verification.md and set status to verified."),
+        ("critique.md", WorkflowPhase.CRITIQUE, "Resolve critique.md and set status to ready or verified."),
+        ("archive.md", WorkflowPhase.ARCHIVE_RECORD, "Complete archive.md and set status to ready."),
+    ]
+
+    for filename, phase, next_action in phase_artifacts:
+        if filename not in summary.present:
+            continue
+        path = change_dir / filename
+        status_value, _ = artifact_status(change_dir, filename)
+        if filename == "tasks.md" and OPEN_TASK_PATTERN.search(path.read_text(encoding="utf-8")):
+            return WorkflowState(change_id, phase, summary.profile, next_action, [])
+        if filename == "verification.md":
+            verification_text = path.read_text(encoding="utf-8").lower()
+            if status_value != "verified" or "not-run" in verification_text or "pending verification evidence" in verification_text:
+                return WorkflowState(change_id, phase, summary.profile, next_action, [])
+            continue
+        if filename == "critique.md":
+            if status_value not in {"ready", "verified"}:
+                return WorkflowState(change_id, phase, summary.profile, next_action, [])
+            continue
+        if status_value != "ready":
+            return WorkflowState(change_id, phase, summary.profile, next_action, [])
+
+    readiness_findings = check_change(root, change_id)
+    if readiness_findings:
+        return WorkflowState(
+            change_id,
+            WorkflowPhase.BLOCKED,
+            summary.profile,
+            "Resolve readiness findings before syncing specs or archiving.",
+            readiness_findings,
+        )
+
+    spec_path = root / ".sdd" / "specs" / change_id / "spec.md"
+    if "delta-spec.md" in summary.present and not spec_path.is_file():
+        return WorkflowState(
+            change_id,
+            WorkflowPhase.SYNC_SPECS,
+            summary.profile,
+            f"Run `ssd-core sync-specs {change_id} --root <repo>`.",
+            [],
+        )
+
+    return WorkflowState(
+        change_id,
+        WorkflowPhase.ARCHIVE,
+        summary.profile,
+        f"Run `ssd-core archive {change_id} --root <repo>`.",
+        [],
+    )
+
+
+def run_workflow(root: Path, change_id: str, profile: str, title: str | None, *, create: bool = True) -> WorkflowState:
+    foundation_findings = validate(root)
+    foundation_errors = [finding for finding in foundation_findings if finding.severity == "error"]
+    if foundation_errors:
+        return WorkflowState(
+            change_id,
+            WorkflowPhase.BLOCKED,
+            profile,
+            "Initialize or repair the SSD-Core foundation before running a workflow.",
+            foundation_errors,
+        )
+
+    state = workflow_state(root, change_id)
+    if state.phase != WorkflowPhase.NOT_STARTED or not create:
+        return state
+
+    create_findings = create_change(root, change_id, profile, title)
+    if create_findings:
+        return WorkflowState(
+            change_id,
+            WorkflowPhase.BLOCKED,
+            profile,
+            "Fix change creation findings before continuing.",
+            create_findings,
+        )
+    return workflow_state(root, change_id)
+
+
+def print_workflow(root: Path, state: WorkflowState) -> int:
+    print("SDD workflow")
+    print(f"- root: {root}")
+    print(f"- change: {state.change_id}")
+    print(f"- profile: {state.profile}")
+    print(f"- phase: {state.phase.value}")
+    print(f"- next: {state.next_action}")
+
+    if state.findings:
+        print("")
+        print("Findings:")
+        for finding in state.findings:
+            print(finding.format(root))
+
+    return 1 if state.is_blocked else 0
+
+
 def print_status(root: Path) -> int:
     findings, changes = status(root)
     errors = [finding for finding in findings if finding.severity == "error"]
@@ -990,6 +1191,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
+    run_parser = subcommands.add_parser("run", help="run the SDD-Core workflow gate for a change")
+    run_parser.add_argument("change_id", help="kebab-case change identifier")
+    run_parser.add_argument(
+        "--profile",
+        default="standard",
+        choices=REQUIRED_PROFILES,
+        help="profile to use when creating a missing change; defaults to standard",
+    )
+    run_parser.add_argument(
+        "--title",
+        help="human-readable change intent when creating a missing change",
+    )
+    run_parser.add_argument(
+        "--no-create",
+        action="store_true",
+        help="inspect the workflow state without creating a missing change",
+    )
+    run_parser.add_argument(
+        "--root",
+        default=".",
+        help="repository root; defaults to the current directory",
+    )
+
     return parser
 
 
@@ -1040,6 +1264,11 @@ def main(argv: list[str] | None = None) -> int:
         if findings:
             return print_findings(root, findings)
         return 0
+
+    if args.command == "run":
+        root = Path(args.root).resolve()
+        state = run_workflow(root, args.change_id, args.profile, args.title, create=not args.no_create)
+        return print_workflow(root, state)
 
     parser.error(f"unsupported command: {args.command}")
     return 2

@@ -153,11 +153,15 @@ def release_check(*, keep_temp: bool) -> None:
         run([str(venv_cli()), "version"])
         run([str(venv_cli()), "init", "--root", str(SMOKE_ROOT)])
         run([str(venv_cli()), "validate", "--root", str(SMOKE_ROOT)])
+        run([str(venv_cli()), "run", "release-gate", "--profile", "standard", "--title", "Release gate", "--root", str(SMOKE_ROOT)])
 
         for adapter in ["codex", "claude-code", "gemini-cli", "opencode", "qwen-code", "generic-markdown"]:
             adapter_path = SMOKE_ROOT / ".sdd" / "adapters" / f"{adapter}.json"
             if not adapter_path.is_file():
                 raise AssertionError(f"packaged adapter was not initialized: {adapter_path}")
+        workflow_proposal = SMOKE_ROOT / ".sdd" / "changes" / "release-gate" / "proposal.md"
+        if not workflow_proposal.is_file():
+            raise AssertionError(f"installed CLI did not create workflow change: {workflow_proposal}")
 
         readiness_doc = SMOKE_ROOT / "docs" / "production-readiness-v0.1.md"
         adapters_doc = SMOKE_ROOT / "docs" / "adapters-v0.1.md"
@@ -191,6 +195,21 @@ def release_check(*, keep_temp: bool) -> None:
             run([node, str(npm_launcher), "validate", "--root", str(NPM_SMOKE_ROOT)])
             run([node, str(npm_launcher), "init", "--root", str(NPM_RELATIVE_SMOKE_ROOT)], cwd=NPM_PROJECT_ROOT)
             run([node, str(npm_launcher), "validate", "--root", str(NPM_RELATIVE_SMOKE_ROOT)], cwd=NPM_PROJECT_ROOT)
+            run(
+                [
+                    node,
+                    str(npm_launcher),
+                    "run",
+                    "npm-release-gate",
+                    "--profile",
+                    "standard",
+                    "--title",
+                    "npm release gate",
+                    "--root",
+                    str(NPM_RELATIVE_SMOKE_ROOT),
+                ],
+                cwd=NPM_PROJECT_ROOT,
+            )
 
             npm_adapter = NPM_SMOKE_ROOT / ".sdd" / "adapters" / "codex.json"
             if not npm_adapter.is_file():
@@ -198,6 +217,11 @@ def release_check(*, keep_temp: bool) -> None:
             relative_npm_adapter = NPM_PROJECT_ROOT / NPM_RELATIVE_SMOKE_ROOT / ".sdd" / "adapters" / "codex.json"
             if not relative_npm_adapter.is_file():
                 raise AssertionError(f"npm wrapper did not resolve relative roots from caller cwd: {relative_npm_adapter}")
+            relative_npm_proposal = (
+                NPM_PROJECT_ROOT / NPM_RELATIVE_SMOKE_ROOT / ".sdd" / "changes" / "npm-release-gate" / "proposal.md"
+            )
+            if not relative_npm_proposal.is_file():
+                raise AssertionError(f"npm wrapper did not create workflow change from caller cwd: {relative_npm_proposal}")
 
         print("Release check passed.")
     finally:

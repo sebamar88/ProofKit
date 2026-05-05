@@ -88,10 +88,10 @@ my-app/.sdd/
   specs/
 ```
 
-### 3) Open A Governed Change
+### 3) Run A Governed Change
 
 ```text
-ssd-core new harden-login-rate-limit --profile standard --title "Harden login rate limits" --root my-app
+ssd-core run harden-login-rate-limit --profile standard --title "Harden login rate limits" --root my-app
 ```
 
 Result:
@@ -106,14 +106,16 @@ my-app/.sdd/changes/harden-login-rate-limit/
   archive.md
 ```
 
+The `run` command is the binding layer: it creates the change if needed, reads the artifact state, names the current phase, and tells the agent or human the next allowed action.
+
 ### 4) Give The Agent A Real Contract
 
 Instead of “fix login security”, point the agent at the change folder:
 
 ```text
-Implement .sdd/changes/harden-login-rate-limit.
-Do not archive until verification.md contains passing evidence.
-Update living specs with ssd-core sync-specs before archive.
+Run `ssd-core run harden-login-rate-limit --root .` before each handoff.
+Follow the phase it reports.
+Do not archive until `ssd-core run` reports `sync-specs` or `archive`.
 ```
 
 The agent now has a repository contract, not just a chat instruction.
@@ -185,6 +187,7 @@ ssd-core init --root <path>
 ssd-core validate --root <path>
 ssd-core status --root <path>
 ssd-core new <change-id> --profile <profile> --title "Human intent" --root <path>
+ssd-core run <change-id> --profile <profile> --title "Human intent" --root <path>
 ssd-core check <change-id> --root <path>
 ssd-core sync-specs <change-id> --root <path>
 ssd-core archive <change-id> --root <path>
@@ -277,7 +280,7 @@ See:
 
 ## Current Status
 
-Current release: `v0.1.3`
+Current release: `v0.1.4`
 
 Solid in v0.1:
 
@@ -287,6 +290,7 @@ Solid in v0.1:
 - packaged templates and docs
 - cross-platform release check and CI
 - npm package published as `ssd-core`
+- workflow binding through `ssd-core run`
 
 Deferred to future versions:
 

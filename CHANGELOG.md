@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.4 - 2026-05-05
+
+- Added `ssd-core run` as the workflow binding layer that creates or inspects a governed change and reports the enforced current phase.
+- Added explicit workflow state types for not-started, propose, specify, design, task, verify, critique, archive-record, sync-specs, archive, archived, and blocked states.
+- Updated the Golden Path to use the real `ssd-core run` entrypoint instead of separate primitive commands only.
+- Extended release checks to smoke-test `ssd-core run` from both wheel installs and npm wrapper installs.
+
 ## 0.1.3 - 2026-05-05
 
 - Repositioned the README around governance anti-hallucination for production agent workflows.

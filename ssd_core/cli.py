@@ -267,6 +267,32 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
+    ext_parser = subcommands.add_parser("extension", help="manage SDD-Core extensions")
+    ext_sub = ext_parser.add_subparsers(dest="ext_action", required=True)
+
+    ext_install = ext_sub.add_parser("install", help="install an extension from a local directory")
+    ext_install.add_argument("path", help="path to the extension source directory")
+    ext_install.add_argument(
+        "--root",
+        default=".",
+        help="repository root; defaults to the current directory",
+    )
+
+    ext_list = ext_sub.add_parser("list", help="list installed extensions")
+    ext_list.add_argument(
+        "--root",
+        default=".",
+        help="repository root; defaults to the current directory",
+    )
+
+    ext_remove = ext_sub.add_parser("remove", help="remove an installed extension")
+    ext_remove.add_argument("name", help="extension name to remove")
+    ext_remove.add_argument(
+        "--root",
+        default=".",
+        help="repository root; defaults to the current directory",
+    )
+
     cmd_parser = subcommands.add_parser(
         "install-commands",
         help="install SDD-Core AI command scaffolds for a supported agent integration",
@@ -443,6 +469,21 @@ def main(argv: list[str] | None = None) -> int:
         if findings:
             return print_findings(root, findings)
         return 0
+
+    if args.command == "extension":
+        root = Path(args.root).resolve()
+        if args.ext_action == "install":
+            findings = install_extension(root, Path(args.path).resolve())
+            if findings:
+                return print_findings(root, findings)
+            return 0
+        if args.ext_action == "list":
+            return print_extension_list(root)
+        if args.ext_action == "remove":
+            findings = remove_extension(root, args.name)
+            if findings:
+                return print_findings(root, findings)
+            return 0
 
     if args.command == "install-commands":
         root = Path(args.root).resolve()

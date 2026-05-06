@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.17.0 - 2026-05-06
+
+**Extension System (100 tests pass)**
+
+New `ssd-core extension install|list|remove` subcommand plus a Python lifecycle hook system.
+
+- **`install_extension(root, path)`** — copies an extension source directory into `.sdd/extensions/<name>/`. Validates `manifest.json` against `sdd.extension.v1` schema before installing. Warns if the extension ships `hooks.py` without a `TRUSTED` marker.
+- **`remove_extension(root, name)`** — deletes the installed extension directory; returns an error Finding if not installed.
+- **`load_extensions(root)`** — discovers all installed extensions and returns `list[Extension]` dataclass instances.
+- **`run_extension_hooks(root, hook_name, **kwargs)`** — calls `hook_name` on every *trusted* extension's `hooks.py`. Untrusted extensions are skipped with a warning (never auto-executes third-party code). Results are accumulated and returned as additional `Finding` items.
+- **Trust model** — hooks require a `TRUSTED` marker file at `.sdd/extensions/<name>/TRUSTED`. The operator creates this manually after reviewing the hook code.
+- **`on_verify` hook** — called at the end of `verify_change()`; can append Findings.
+- **`on_guard` hook** — called at the end of `guard_repository()`; can append Findings.
+- **New schema** — `extension.schema.json` added to `.sdd/schemas/` (required by `validate()`).
+- **New directory** — `.sdd/extensions/` added to `REQUIRED_DIRECTORIES` and `EMPTY_STATE_DIRECTORIES`; created by `init_project()`.
+- **CLI** — `ssd-core extension install <path>`, `ssd-core extension list`, `ssd-core extension remove <name>`.
+- **Public API** — `Extension`, `load_extensions`, `install_extension`, `remove_extension`, `run_extension_hooks`, `print_extension_list` exported from `ssd_core`.
+
 ## 0.16.0 - 2026-05-06
 
 **`install-commands` — AI command scaffolds with scope control (92 tests pass)**

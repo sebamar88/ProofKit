@@ -58,7 +58,7 @@ class SddToolingTests(unittest.TestCase):
             self.record_transition(root, change_id, phase)
 
     def test_version_is_defined(self) -> None:
-        self.assertEqual(sdd.VERSION, "0.16.0")
+        self.assertEqual(sdd.VERSION, "0.17.0")
 
     def test_distribution_versions_match(self) -> None:
         pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -1920,6 +1920,134 @@ class SddToolingTests(unittest.TestCase):
         for name in _COMMAND_FILE_NAMES:
             tmpl = sdd.template_commands_root() / name
             self.assertTrue(tmpl.is_file(), f"command template missing: {name}")
+
+    # ── extension system ────────────────────────────────────────────────────────
+
+    def _make_extension_source(self, tmp: Path, name: str = "my-ext") -> Path:
+        """Create a minimal valid extension source directory."""
+        src = tmp / "ext-src" / name
+        src.mkdir(parents=True)
+        manifest = {
+            "schema": "sdd.extension.v1",
+            "name": name,
+            "version": "1.0.0",
+            "description": "Test extension",
+            "author": "tester",
+            "templates": False,
+            "hooks": False,
+        }
+        (src / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+        return src
+
+    def test_load_extensions_returns_empty_when_no_extensions_installed(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"ext-empty-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+        exts = sdd.load_extensions(root)
+        self.assertEqual(exts, [])
+
+    def test_install_extension_copies_manifest_and_creates_extension_dir(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"ext-install-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+        src = self._make_extension_source(root, "my-ext")
+        with contextlib.redirect_stdout(io.StringIO()):
+            findings = sdd.install_extension(root, src)
+        self.assertEqual(findings, [])
+        ext_dir = root / ".sdd" / "extensions" / "my-ext"
+        self.assertTrue(ext_dir.is_dir())
+        self.assertTrue((ext_dir / "manifest.json").is_file())
+
+    def test_list_extensions_shows_installed_name_and_version(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"ext-list-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+        src = self._make_extension_source(root, "my-ext")
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.install_extension(root, src)
+        exts = sdd.load_extensions(root)
+        self.assertEqual(len(exts), 1)
+        self.assertEqual(exts[0].name, "my-ext")
+        self.assertEqual(exts[0].version, "1.0.0")
+        self.assertEqual(exts[0].description, "Test extension")
+
+    def test_remove_extension_deletes_extension_directory(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"ext-remove-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+        src = self._make_extension_source(root, "my-ext")
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.install_extension(root, src)
+        ext_dir = root / ".sdd" / "extensions" / "my-ext"
+        self.assertTrue(ext_dir.is_dir())
+        with contextlib.redirect_stdout(io.StringIO()):
+            findings = sdd.remove_extension(root, "my-ext")
+        self.assertEqual(findings, [])
+        self.assertFalse(ext_dir.exists())
+
+    def test_extension_hook_on_verify_appends_findings_when_trusted(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"ext-hook-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+        # Build extension with a hooks.py that adds one error finding.
+        src = self._make_extension_source(root, "hook-ext")
+        manifst = json.loads((src / "manifest.json").read_text(encoding="utf-8"))
+        manifst["hooks"] = True
+        (src / "manifest.json").write_text(json.dumps(manifst), encoding="utf-8")
+        (src / "hooks.py").write_text(
+            "def on_verify(root, change_id, findings):\n"
+            "    from ssd_core._types import Finding\n"
+            "    return findings + [Finding('error', None, 'hook-injected-error')]\n",
+            encoding="utf-8",
+        )
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.install_extension(root, src)
+        # Mark TRUSTED.
+        (root / ".sdd" / "extensions" / "hook-ext" / "TRUSTED").write_text("", encoding="utf-8")
+        findings = sdd.run_extension_hooks(root, "on_verify", change_id="any", findings=[])
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].message, "hook-injected-error")
+
+    def test_extension_hook_skipped_without_trusted_marker(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"ext-notrust-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+        src = self._make_extension_source(root, "untrusted-ext")
+        manifst = json.loads((src / "manifest.json").read_text(encoding="utf-8"))
+        manifst["hooks"] = True
+        (src / "manifest.json").write_text(json.dumps(manifst), encoding="utf-8")
+        (src / "hooks.py").write_text(
+            "def on_verify(root, change_id, findings):\n"
+            "    from ssd_core._types import Finding\n"
+            "    return findings + [Finding('error', None, 'should-not-appear')]\n",
+            encoding="utf-8",
+        )
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.install_extension(root, src)
+        # No TRUSTED marker — hooks must be skipped (output may warn).
+        with contextlib.redirect_stdout(io.StringIO()):
+            findings = sdd.run_extension_hooks(root, "on_verify", change_id="any", findings=[])
+        self.assertEqual(findings, [], "untrusted hooks must not inject findings")
+
+    def test_install_extension_invalid_manifest_returns_finding(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"ext-badmf-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+        src = root / "ext-src" / "bad-ext"
+        src.mkdir(parents=True)
+        (src / "manifest.json").write_text("{not valid json", encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()):
+            findings = sdd.install_extension(root, src)
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].severity, "error")
+
+    def test_remove_extension_unknown_name_returns_finding(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"ext-rm-miss-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+        findings = sdd.remove_extension(root, "nonexistent-ext")
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].severity, "error")
 
 
 if __name__ == "__main__":

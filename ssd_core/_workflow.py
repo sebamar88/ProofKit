@@ -57,6 +57,13 @@ from ._types import (
     ALLOWED_TRANSITIONS,
     PHASE_NEXT_ACTIONS,
 )
+from ._extensions import (
+    Extension,
+    load_extensions,
+    install_extension,
+    remove_extension,
+    run_extension_hooks,
+)
 
 def logical_path(root: Path, value: str) -> Path:
     return root.joinpath(*value.split("/"))
@@ -1027,6 +1034,11 @@ def verify_change(
     )
     record_workflow_state(root, new_state, "verify")
     print(_green("\u2714") + f" Verification recorded: {_bold(change_id)}")
+
+    ext_findings = run_extension_hooks(root, "on_verify", change_id=change_id, findings=[])
+    if ext_findings:
+        return ext_findings
+
     return []
 
 
@@ -2273,6 +2285,7 @@ def guard_repository(
             if require_execution_evidence:
                 findings.extend(validate_execution_evidence(root, change_id))
 
+    findings.extend(run_extension_hooks(root, "on_guard", findings=list(findings)))
     return findings
 
 

@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "sdd.extension.v1",
+  "title": "SDD-Core Extension Manifest",
+  "description": "Manifest for an SDD-Core extension package.",
+  "type": "object",
+  "required": ["schema", "name", "version", "description", "author"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "sdd.extension.v1",
+      "description": "Must be 'sdd.extension.v1'."
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Kebab-case extension identifier."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Semantic version string."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One-line human-readable description."
+    },
+    "author": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Author name or contact."
+    },
+    "templates": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if the extension ships template directories (profiles/, agents/, skills/, commands/)."
+    },
+    "hooks": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if the extension ships a hooks.py with lifecycle callbacks."
+    },
+    "homepage": {
+      "type": "string",
+      "description": "Optional URL for the extension's homepage or repository."
+    }
+  }
+}

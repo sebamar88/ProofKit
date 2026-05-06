@@ -38,6 +38,11 @@ from ._workflow import (
     verify_change,
     create_change,
     install_hooks,
+    install_commands,
+    list_available_integrations,
+    load_extensions,
+    install_extension,
+    remove_extension,
     discover_test_command,
     guard_repository,
     transition_workflow,
@@ -59,6 +64,23 @@ from ._workflow import (
     AutoStep,
     EngineStep,
 )
+
+
+def print_extension_list(root: Path) -> int:
+    """Print all installed extensions and return 0."""
+    exts = load_extensions(root)
+    if not exts:
+        print(_dim("No extensions installed."))
+        print(_dim("  Install one: ssd-core extension install <path>"))
+        return 0
+    print(_bold(f"Installed extensions ({len(exts)}):"))
+    for ext in exts:
+        trust_tag = _green("[trusted]") if ext.is_trusted else _yellow("[not trusted]")
+        hooks_tag = _dim(" hooks") if ext.has_hooks else ""
+        print(f"  {_bold(ext.name)}  {_dim(ext.version)}  {trust_tag}{hooks_tag}")
+        print(f"    {ext.description}")
+    return 0
+
 
 def print_guard(
     root: Path,

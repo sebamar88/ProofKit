@@ -8,7 +8,7 @@ from enum import Enum
 from pathlib import Path
 from typing import ClassVar, Iterable, Protocol
 
-VERSION = "0.16.0"
+VERSION = "0.17.0"
 
 
 # ── Terminal color helpers ───────────────────────────────────────────────────
@@ -61,6 +61,7 @@ REQUIRED_DIRECTORIES = [
     ".sdd/changes",
     ".sdd/archive",
     ".sdd/evidence",
+    ".sdd/extensions",
 ]
 
 REQUIRED_ADAPTERS = [
@@ -97,6 +98,7 @@ REQUIRED_SCHEMAS = [
     "agent.schema.json",
     "adapter-capabilities.schema.json",
     "artifact.schema.json",
+    "extension.schema.json",
     "phase-result.schema.json",
     "skill.schema.json",
     "verification.schema.json",
@@ -158,6 +160,7 @@ EMPTY_STATE_DIRECTORIES = [
     "archive",
     "changes",
     "evidence",
+    "extensions",
     "specs",
 ]
 

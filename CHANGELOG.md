@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.0 - 2026-05-06
+
+Execution truth hardening — three black-box behavioral tests close the last QA gap around evidence integrity (77 tests total):
+
+- **`test_execution_evidence_records_exact_exit_code`**: asserts that `rec["exit_code"]` equals the real process exit code (e.g. `sys.exit(42)` → `exit_code == 42`). Previous tests only checked `passed=False`; this proves the raw value is captured correctly.
+- **`test_execution_evidence_log_captures_stdout`**: runs a command that prints a known sentinel string, then asserts the string appears verbatim in the persisted log file and that the log's SHA-256 checksum is still valid after reading. Proves the full stdout → log → checksum chain.
+- **`test_execution_evidence_log_captures_stderr`**: same for stderr. Proves stderr is captured separately from stdout and stored in the same log.
+
+These tests are black-box behavioral assertions — they drive the public API (`verify_change`, `execution_evidence_records`) and inspect only persisted artifacts, with no coupling to internal implementation.
+
 ## 0.10.0 - 2026-05-06
 
 - Moved `write_ci_template`, `_CI_TEMPLATES`, `_GITHUB_ACTIONS_TEMPLATE`, and `_GITLAB_CI_TEMPLATE` from `_render.py` to `_workflow.py`. These are file-I/O operations that return `list[Finding]`, not presentation layer concerns. `_render.py` is now a pure presentation module — it only contains `print_*` functions and `run_demo`/`run_fast_demo`. No behavioral changes; public API is unchanged.

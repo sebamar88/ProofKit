@@ -2,9 +2,10 @@
 
 ## 0.13.0 - 2026-05-06
 
-Evidence edge-case coverage — documents that empty stdout is a valid evidence scenario (81 tests total):
+Golden path end-to-end test + evidence edge-case coverage (82 tests total):
 
-- **`test_execution_allows_empty_stdout_for_successful_command`**: runs a command that produces zero stdout and zero stderr (`python -c "pass"`), asserts that verify succeeds, evidence is fully recorded (exit_code, log file, SHA-256 checksum), and `validate_execution_evidence` passes. Evidence strength comes from `exit_code` + persisted log + checksum chain — not from output volume. Commands like `true`, `test -f file`, or `mkdir -p` are legitimate verification steps that produce no output.
+- **`test_golden_path_idea_to_archive_with_execution_evidence`**: the definitive system proof. A standard-profile change goes from idea to archived in a single test: `init` → `create_change` → agent fills proposal → auto-loop advances through SPECIFY/DESIGN → agent fills tasks → auto-loop pauses at TASK (verify gate) → `verify_change` with real command execution (sentinel string in stdout) → evidence persisted with valid SHA-256 checksum → agent fills archive record → auto-loop drives through ARCHIVE_RECORD/SYNC_SPECS to ARCHIVED → `guard --strict-state --require-execution-evidence` passes on the archive → change directory is gone, living spec synced, archive exists. If this test passes, the system works.
+- **`test_execution_allows_empty_stdout_for_successful_command`**: documents that commands producing zero stdout (e.g. `true`, `test -f file`) are valid evidence. Evidence strength comes from `exit_code` + persisted log + SHA-256 checksum chain — not from output volume.
 
 ## 0.12.0 - 2026-05-06
 

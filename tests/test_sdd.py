@@ -1569,6 +1569,153 @@ class SddToolingTests(unittest.TestCase):
         # validate_execution_evidence also passes.
         self.assertEqual(sdd.validate_execution_evidence(root, change_id), [])
 
+    # ── Golden narrative: full lifecycle with execution evidence ───────────
+
+    def test_golden_path_idea_to_archive_with_execution_evidence(self) -> None:
+        """The definitive system proof: a standard-profile change goes from
+        idea to archived with real command execution, checksummed evidence,
+        and guard validation at every critical gate.
+
+        Narrative:
+          1. init project
+          2. create standard change
+          3. agent fills proposal → auto-loop advances through SPECIFY/DESIGN
+          4. agent fills tasks → auto-loop pauses at TASK (verify gate)
+          5. verify with real command → evidence persisted + checksummed
+          6. auto-loop drives through ARCHIVE_RECORD → SYNC_SPECS → ARCHIVED
+          7. guard --strict-state --require-execution-evidence passes on the archive
+          8. change directory is gone, archive + spec exist
+
+        If this test passes, the system works end-to-end.
+        """
+        import hashlib
+        root = REPO_ROOT / ".tmp-tests" / f"golden-{uuid.uuid4().hex}"
+        change_id = "harden-login"
+
+        # ── 1. Init project ──────────────────────────────────────────────
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+
+        # ── 2. Create standard-profile change ─────────────────────────────
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.create_change(root, change_id, "standard", "Harden login"), [])
+        change_dir = root / ".sdd" / "changes" / change_id
+        self.assertTrue(change_dir.is_dir())
+
+        # ── 3. Agent fills proposal → auto-loop advances ─────────────────
+        # At this point, auto should pause at PROPOSE (proposal is draft).
+        result = sdd._auto_advance(root, change_id)
+        self.assertTrue(result.needs_human_work)
+        self.assertEqual(result.step.phase, sdd.WorkflowPhase.PROPOSE)
+
+        # Agent writes the proposal.
+        proposal = change_dir / "proposal.md"
+        proposal.write_text(
+            sdd.set_frontmatter_value(proposal.read_text(encoding="utf-8"), "status", "ready"),
+            encoding="utf-8",
+        )
+
+        # Auto-loop: should advance through SPECIFY (needs delta-spec).
+        with contextlib.redirect_stdout(io.StringIO()):
+            result = sdd._auto_advance(root, change_id)
+        self.assertIsNotNone(result.executed_command)  # transition to SPECIFY
+
+        # Agent fills delta-spec.
+        delta_spec = change_dir / "delta-spec.md"
+        delta_spec.write_text(
+            sdd.set_frontmatter_value(delta_spec.read_text(encoding="utf-8"), "status", "ready"),
+            encoding="utf-8",
+        )
+
+        # Auto-loop: advance through DESIGN.
+        with contextlib.redirect_stdout(io.StringIO()):
+            result = sdd._auto_advance(root, change_id)
+        self.assertIsNotNone(result.executed_command)
+
+        # Agent fills design.
+        design = change_dir / "design.md"
+        design.write_text(
+            sdd.set_frontmatter_value(design.read_text(encoding="utf-8"), "status", "ready"),
+            encoding="utf-8",
+        )
+
+        # Auto-loop: advance to TASK.
+        with contextlib.redirect_stdout(io.StringIO()):
+            result = sdd._auto_advance(root, change_id)
+        self.assertIsNotNone(result.executed_command)
+
+        # ── 4. Agent fills tasks → auto pauses at TASK (verify gate) ──────
+        tasks = change_dir / "tasks.md"
+        text = tasks.read_text(encoding="utf-8").replace("- [ ]", "- [x]")
+        text = sdd.set_frontmatter_value(text, "status", "ready")
+        tasks.write_text(text, encoding="utf-8")
+
+        # Auto MUST pause here — VERIFY is a restricted phase.
+        with contextlib.redirect_stdout(io.StringIO()):
+            for _ in range(10):
+                result = sdd._auto_advance(root, change_id)
+                if result.needs_human_work or result.step.is_complete:
+                    break
+        self.assertEqual(result.step.phase, sdd.WorkflowPhase.TASK)
+        self.assertTrue(result.needs_human_work)
+
+        # ── 5. Verify with real command execution ─────────────────────────
+        sentinel = "GOLDEN_PATH_PROOF_42"
+        cmd = f'"{sys.executable}" -c "print(\'{sentinel}\')"'
+        with contextlib.redirect_stdout(io.StringIO()):
+            findings = sdd.verify_change(root, change_id, [cmd])
+        self.assertEqual(findings, [], f"verify blocked: {findings}")
+        self.assertEqual(sdd.declared_workflow_phase(root, change_id), sdd.WorkflowPhase.VERIFY)
+
+        # Evidence is persisted with valid checksum.
+        records, rec_findings = sdd.execution_evidence_records(root, change_id)
+        self.assertEqual(rec_findings, [])
+        self.assertEqual(len(records), 1)
+        rec = records[0]
+        self.assertTrue(rec["passed"])
+        self.assertEqual(rec["exit_code"], 0)
+        self.assertEqual(rec["command"], cmd)
+        log_path = root / rec["log_path"]
+        log_content = log_path.read_text(encoding="utf-8")
+        self.assertIn(sentinel, log_content)
+        self.assertEqual(
+            hashlib.sha256(log_content.encode("utf-8")).hexdigest(),
+            rec["output_checksum"],
+        )
+
+        # ── 6. Auto-loop drives to ARCHIVED ──────────────────────────────
+        # archive.md needs status: ready before the engine can archive.
+        archive_md = change_dir / "archive.md"
+        archive_md.write_text(
+            sdd.set_frontmatter_value(archive_md.read_text(encoding="utf-8"), "status", "ready"),
+            encoding="utf-8",
+        )
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            for _ in range(20):
+                result = sdd._auto_advance(root, change_id)
+                if result.step.is_complete or result.step.is_blocked or result.needs_human_work:
+                    break
+        self.assertTrue(result.step.is_complete, f"expected complete, got phase={result.step.phase}")
+
+        # ── 7. Guard with strictest policy passes ─────────────────────────
+        guard_findings = sdd.guard_repository(
+            root,
+            strict_state=True,
+            require_execution_evidence=True,
+        )
+        self.assertEqual(guard_findings, [], f"guard failed: {guard_findings}")
+
+        # ── 8. Filesystem proof ───────────────────────────────────────────
+        # Change directory is gone.
+        self.assertFalse(change_dir.exists())
+        # Living spec was synced.
+        self.assertTrue((root / ".sdd" / "specs" / change_id / "spec.md").is_file())
+        # Archive exists.
+        archives = [p for p in (root / ".sdd" / "archive").iterdir() if p.is_dir()]
+        self.assertEqual(len(archives), 1)
+        self.assertIn(change_id, archives[0].name)
+
 
 if __name__ == "__main__":
     unittest.main()

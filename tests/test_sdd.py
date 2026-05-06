@@ -58,7 +58,7 @@ class SddToolingTests(unittest.TestCase):
             self.record_transition(root, change_id, phase)
 
     def test_version_is_defined(self) -> None:
-        self.assertEqual(sdd.VERSION, "0.20.0")
+        self.assertEqual(sdd.VERSION, "0.21.0")
 
     def test_distribution_versions_match(self) -> None:
         pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -2182,6 +2182,64 @@ class SddToolingTests(unittest.TestCase):
         # quick profile has proposal.md, tasks.md, verification.md
         artifacts = list((root / ".sdd" / "changes" / change_id).iterdir())
         self.assertGreater(len(artifacts), 0)
+
+    # ── v0.21.0: Multi-agent Runner ───────────────────────────────────────
+
+    def test_dispatch_request_holds_fields(self) -> None:
+        req = sdd.DispatchRequest(
+            agent="shell",
+            prompt="echo hello",
+            working_dir=REPO_ROOT,
+            timeout_seconds=10,
+        )
+        self.assertEqual(req.agent, "shell")
+        self.assertEqual(req.prompt, "echo hello")
+        self.assertEqual(req.timeout_seconds, 10)
+
+    def test_dispatch_result_is_success_when_exit_zero(self) -> None:
+        result = sdd.DispatchResult(exit_code=0, stdout="ok", stderr="", elapsed_seconds=0.1)
+        self.assertTrue(result.success)
+
+    def test_dispatch_result_is_failure_when_exit_nonzero(self) -> None:
+        result = sdd.DispatchResult(exit_code=1, stdout="", stderr="err", elapsed_seconds=0.1)
+        self.assertFalse(result.success)
+
+    def test_shell_dispatcher_runs_echo(self) -> None:
+        dispatcher = sdd.ShellAgentDispatcher()
+        req = sdd.DispatchRequest(
+            agent="shell",
+            prompt="echo sdd-test-marker",
+            working_dir=REPO_ROOT,
+            timeout_seconds=10,
+        )
+        result = dispatcher.dispatch(req)
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("sdd-test-marker", result.stdout)
+
+    def test_shell_dispatcher_captures_failure(self) -> None:
+        dispatcher = sdd.ShellAgentDispatcher()
+        req = sdd.DispatchRequest(
+            agent="shell",
+            prompt="exit 42",
+            working_dir=REPO_ROOT,
+            timeout_seconds=10,
+        )
+        result = dispatcher.dispatch(req)
+        self.assertFalse(result.success)
+
+    def test_claude_code_dispatcher_returns_error_when_not_installed(self) -> None:
+        import shutil as _shutil
+        if _shutil.which("claude"):
+            self.skipTest("claude CLI is installed; skipping unavailable-claude test")
+        dispatcher = sdd.ClaudeCodeDispatcher()
+        req = sdd.DispatchRequest(
+            agent="claude-code",
+            prompt="print hello",
+            working_dir=REPO_ROOT,
+            timeout_seconds=5,
+        )
+        result = dispatcher.dispatch(req)
+        self.assertFalse(result.success)
 
 
 if __name__ == "__main__":

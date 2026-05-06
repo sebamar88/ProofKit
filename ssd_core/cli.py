@@ -9,6 +9,12 @@ from pathlib import Path
 from ._types import *  # noqa: F401, F403
 from ._workflow import *  # noqa: F401, F403
 from ._render import *  # noqa: F401, F403
+from ._dispatch import (  # noqa: F401
+    DispatchRequest,
+    DispatchResult,
+    ShellAgentDispatcher,
+    ClaudeCodeDispatcher,
+)
 
 # Private names with leading underscore are not exported by *, import explicitly.
 from ._types import _PHASE_ICON  # noqa: F401

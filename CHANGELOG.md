@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.21.0 - 2026-05-06
+
+**Multi-agent Runner (123 tests pass, 1 skipped)**
+
+New `_dispatch.py` module with a pluggable agent dispatcher interface.
+
+- **`DispatchRequest`** — frozen dataclass: `agent`, `prompt`, `working_dir`, `timeout_seconds`.
+- **`DispatchResult`** — frozen dataclass: `exit_code`, `stdout`, `stderr`, `elapsed_seconds`, `.success` property.
+- **`ShellAgentDispatcher`** — runs any prompt as a shell command via `subprocess.run(shell=True)`. Handles timeouts and OS errors, returning a failed `DispatchResult` rather than raising.
+- **`ClaudeCodeDispatcher`** — runs the `claude` CLI with `--print` for non-interactive automation. Returns exit_code=127 with a clear error message when `claude` is not on `PATH`.
+- All four symbols re-exported from `ssd_core` public API and `ssd_core.cli`.
+
 ## 0.20.0 - 2026-05-06
 
 **Scale Adaptivity (118 tests pass)**

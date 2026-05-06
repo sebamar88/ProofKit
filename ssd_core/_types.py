@@ -8,7 +8,7 @@ from enum import Enum
 from pathlib import Path
 from typing import ClassVar, Iterable, Protocol
 
-VERSION = "0.17.0"
+VERSION = "0.18.0"
 
 
 # ── Terminal color helpers ───────────────────────────────────────────────────
@@ -54,6 +54,7 @@ REQUIRED_DIRECTORIES = [
     ".sdd",
     ".sdd/adapters",
     ".sdd/agents",
+    ".sdd/memory",
     ".sdd/profiles",
     ".sdd/schemas",
     ".sdd/skills",
@@ -146,6 +147,13 @@ FOUNDATION_COPY_FILES = [
     "protocol.md",
     "state.json",
 ]
+
+MEMORY_COPY_FILES = [
+    "project.md",
+    "decisions.md",
+]
+
+MEMORY_KEYS = ["project", "decisions"]
 
 FOUNDATION_DOC_FILES = [
     "adapter-contract-v0.1.md",

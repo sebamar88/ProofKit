@@ -58,7 +58,7 @@ class SddToolingTests(unittest.TestCase):
             self.record_transition(root, change_id, phase)
 
     def test_version_is_defined(self) -> None:
-        self.assertEqual(sdd.VERSION, "0.17.0")
+        self.assertEqual(sdd.VERSION, "0.18.0")
 
     def test_distribution_versions_match(self) -> None:
         pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -2048,6 +2048,60 @@ class SddToolingTests(unittest.TestCase):
         findings = sdd.remove_extension(root, "nonexistent-ext")
         self.assertEqual(len(findings), 1)
         self.assertEqual(findings[0].severity, "error")
+
+    # ── project memory ──────────────────────────────────────────────────────────
+
+    def test_init_project_creates_memory_directory_with_template_files(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"mem-init-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+        memory_dir = root / ".sdd" / "memory"
+        self.assertTrue(memory_dir.is_dir())
+        self.assertTrue((memory_dir / "project.md").is_file())
+        self.assertTrue((memory_dir / "decisions.md").is_file())
+
+    def test_read_memory_entry_returns_content_after_init(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"mem-read-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+        content = sdd.read_memory_entry(root, "project")
+        self.assertIsNotNone(content)
+        self.assertIsInstance(content, str)
+        self.assertGreater(len(content), 0)
+
+    def test_append_memory_adds_content_to_project_md(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"mem-append-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+        findings = sdd.append_memory(root, "project", "## New Section\n\nSome content.")
+        self.assertEqual(findings, [])
+        content = sdd.read_memory_entry(root, "project")
+        self.assertIn("New Section", content)
+
+    def test_append_memory_unknown_key_returns_error_finding(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"mem-badkey-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+        findings = sdd.append_memory(root, "nonexistent", "content")
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].severity, "error")
+
+    def test_memory_show_returns_0_with_content(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"mem-show-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+        with contextlib.redirect_stdout(io.StringIO()) as buf:
+            rc = sdd.print_memory(root, "project")
+        self.assertEqual(rc, 0)
+        self.assertGreater(len(buf.getvalue()), 0)
+
+    def test_status_output_includes_memory_word_count(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"mem-status-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+        with contextlib.redirect_stdout(io.StringIO()) as buf:
+            sdd.print_status(root)
+        self.assertIn("memory", buf.getvalue().lower())
 
 
 if __name__ == "__main__":

@@ -43,6 +43,9 @@ from ._workflow import (
     load_extensions,
     install_extension,
     remove_extension,
+    read_memory_entry,
+    append_memory,
+    _memory_word_count,
     discover_test_command,
     guard_repository,
     transition_workflow,
@@ -79,6 +82,20 @@ def print_extension_list(root: Path) -> int:
         hooks_tag = _dim(" hooks") if ext.has_hooks else ""
         print(f"  {_bold(ext.name)}  {_dim(ext.version)}  {trust_tag}{hooks_tag}")
         print(f"    {ext.description}")
+    return 0
+
+
+def print_memory(root: Path, key: str | None = None) -> int:
+    """Print the content of one or all memory files."""
+    from ._types import MEMORY_KEYS
+    keys = [key] if key else MEMORY_KEYS
+    for k in keys:
+        content = read_memory_entry(root, k)
+        if content is None:
+            print(_yellow(f"Memory file '{k}.md' not found — run `ssd-core init` first."))
+            return 1
+        print(_bold(f"── memory/{k}.md ──"))
+        print(content)
     return 0
 
 
@@ -217,6 +234,8 @@ def print_status(root: Path) -> int:
     print(f"  root            : {_dim(str(root))}")
     print(f"  validation      : {val_str}")
     print(f"  active changes  : {len(changes)}")
+    mem_words = _memory_word_count(root)
+    print(f"  memory          : {mem_words} word(s)")
 
     if changes:
         print("")

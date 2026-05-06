@@ -293,6 +293,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
+    mem_parser = subcommands.add_parser("memory", help="read or update the project memory")
+    mem_sub = mem_parser.add_subparsers(dest="mem_action", required=True)
+
+    mem_show = mem_sub.add_parser("show", help="print memory file(s)")
+    mem_show.add_argument(
+        "--key",
+        default=None,
+        choices=["project", "decisions"],
+        help="which memory file to show; omit to show all",
+    )
+    mem_show.add_argument("--root", default=".", help="repository root; defaults to the current directory")
+
+    mem_add = mem_sub.add_parser("add", help="append content to a memory file")
+    mem_add.add_argument(
+        "--key",
+        required=True,
+        choices=["project", "decisions"],
+        help="which memory file to append to",
+    )
+    mem_add.add_argument("--text", required=True, help="Markdown text to append")
+    mem_add.add_argument("--root", default=".", help="repository root; defaults to the current directory")
+
     cmd_parser = subcommands.add_parser(
         "install-commands",
         help="install SDD-Core AI command scaffolds for a supported agent integration",
@@ -481,6 +503,16 @@ def main(argv: list[str] | None = None) -> int:
             return print_extension_list(root)
         if args.ext_action == "remove":
             findings = remove_extension(root, args.name)
+            if findings:
+                return print_findings(root, findings)
+            return 0
+
+    if args.command == "memory":
+        root = Path(args.root).resolve()
+        if args.mem_action == "show":
+            return print_memory(root, args.key)
+        if args.mem_action == "add":
+            findings = append_memory(root, args.key, args.text)
             if findings:
                 return print_findings(root, findings)
             return 0

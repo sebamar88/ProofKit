@@ -45,6 +45,8 @@ from ._types import (
     FOUNDATION_COPY_FILES,
     FOUNDATION_DOC_FILES,
     EMPTY_STATE_DIRECTORIES,
+    MEMORY_COPY_FILES,
+    MEMORY_KEYS,
     ARTIFACT_STATUSES,
     SCHEMA_PATTERN,
     TOKEN_PATTERN,
@@ -144,7 +146,53 @@ def list_available_integrations() -> list[str]:
     return sorted(_INTEGRATION_COMMAND_DIRS)
 
 
-def _ensure_gitignore_entry(root: Path, rel_path: str) -> None:
+# ── Project Memory ─────────────────────────────────────────────────────────────
+
+def template_memory_root() -> TemplateResource:
+    source_checkout = Path(__file__).resolve().parent / "templates" / "sdd" / "memory"
+    if source_checkout.is_dir():
+        return source_checkout
+    return files("ssd_core").joinpath("templates", "sdd", "memory")  # type: ignore[return-value]
+
+
+def memory_path(root: Path, key: str) -> Path:
+    return root / ".sdd" / "memory" / f"{key}.md"
+
+
+def read_memory_entry(root: Path, key: str) -> str | None:
+    """Return the content of ``key.md`` in the project memory, or None if missing."""
+    path = memory_path(root, key)
+    if not path.is_file():
+        return None
+    return path.read_text(encoding="utf-8")
+
+
+def append_memory(root: Path, key: str, content: str) -> list[Finding]:
+    """Append *content* to the memory file identified by *key*."""
+    if key not in MEMORY_KEYS:
+        known = ", ".join(MEMORY_KEYS)
+        return [Finding("error", None, f"unknown memory key '{key}'; must be one of: {known}")]
+    path = memory_path(root, key)
+    if not path.is_file():
+        return [Finding("error", path, f"memory file not found: {path.name} — run `ssd-core init` first")]
+    existing = path.read_text(encoding="utf-8")
+    separator = "\n\n" if not existing.endswith("\n\n") else ""
+    path.write_text(existing + separator + content + "\n", encoding="utf-8")
+    print(_green("\u2714") + f" Memory updated: {path.relative_to(root).as_posix()}")
+    return []
+
+
+def _memory_word_count(root: Path) -> int:
+    """Return total word count across all memory files."""
+    total = 0
+    for key in MEMORY_KEYS:
+        content = read_memory_entry(root, key)
+        if content:
+            total += len(content.split())
+    return total
+
+
+
     """Add *rel_path* (as a directory glob) to .gitignore once; never duplicate."""
     gitignore = root / ".gitignore"
     entry = rel_path.rstrip("/") + "/"
@@ -154,6 +202,20 @@ def _ensure_gitignore_entry(root: Path, rel_path: str) -> None:
             return
     with gitignore.open("a", encoding="utf-8") as fh:
         fh.write(f"\n# SDD-Core local-scope commands (not committed to VCS)\n{entry}\n")
+
+
+def _ensure_gitignore_entry(root: Path, entry: str) -> None:
+    """Append *entry* to ``.gitignore`` inside *root* if not already present."""
+    gitignore = root / ".gitignore"
+    if gitignore.is_file():
+        existing = gitignore.read_text(encoding="utf-8")
+        # Check whole-line match to avoid partial substring false-positives.
+        if any(line.strip() == entry for line in existing.splitlines()):
+            return
+        separator = "" if existing.endswith("\n") else "\n"
+        gitignore.write_text(existing + separator + entry + "\n", encoding="utf-8")
+    else:
+        gitignore.write_text(entry + "\n", encoding="utf-8")
 
 
 def install_commands(
@@ -448,6 +510,13 @@ def validate_markdown_frontmatter(root: Path) -> list[Finding]:
         return findings
 
     for path in sorted(sdd_root.rglob("*.md")):
+        try:
+            relative_parts = path.relative_to(sdd_root).parts
+        except ValueError:
+            relative_parts = ()
+        if relative_parts and relative_parts[0] == "memory":
+            continue  # memory files are free-form Markdown, no frontmatter required
+
         metadata, error = read_frontmatter(path)
         if error is not None:
             findings.append(Finding("error", path, error))
@@ -645,6 +714,15 @@ def init_project(root: Path) -> list[Finding]:
         keep = state_dir / ".gitkeep"
         if not keep.exists():
             keep.write_text("\n", encoding="utf-8")
+
+    memory_dir = target / "memory"
+    memory_dir.mkdir(exist_ok=True)
+    tmpl_memory = template_memory_root()
+    for filename in MEMORY_COPY_FILES:
+        src = tmpl_memory.joinpath(filename)
+        dst = memory_dir / filename
+        if src.is_file() and not dst.exists():
+            copy_template_file(src, dst)
 
     print(f"Initialized SDD-Core at: {target.as_posix()}")
     return []

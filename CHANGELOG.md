@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.18.0 - 2026-05-06
+
+**Persistent Project Memory (106 tests pass)**
+
+New `ssd-core memory show|add` subcommand and `append_memory` / `read_memory_entry` API.
+
+- **`init_project()`** — now copies `memory/project.md` and `memory/decisions.md` templates into `.sdd/memory/` on first init.
+- **`read_memory_entry(root, key)`** — reads `.sdd/memory/<key>.md` and returns its text (or `None`).
+- **`append_memory(root, key, content)`** — appends a timestamped entry to the named memory file; returns error Findings on unknown key.
+- **`print_memory(root, key)`** — CLI helper that pretty-prints one or all memory files.
+- **`print_status()`** — now shows total memory word count in the project summary.
+- **`validate_markdown_frontmatter()`** — now skips `.sdd/memory/` (free-form Markdown, no frontmatter required).
+- **`_ensure_gitignore_entry(root, entry)`** — idempotently adds a path to `.gitignore`; used by `install_commands` with `scope="local"`.
+- `MEMORY_KEYS`, `MEMORY_COPY_FILES` constants added to `_types.py`.
+
 ## 0.17.0 - 2026-05-06
 
 **Extension System (100 tests pass)**

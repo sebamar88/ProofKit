@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.0 - 2026-05-06
+
+Evidence edge-case coverage — documents that empty stdout is a valid evidence scenario (81 tests total):
+
+- **`test_execution_allows_empty_stdout_for_successful_command`**: runs a command that produces zero stdout and zero stderr (`python -c "pass"`), asserts that verify succeeds, evidence is fully recorded (exit_code, log file, SHA-256 checksum), and `validate_execution_evidence` passes. Evidence strength comes from `exit_code` + persisted log + checksum chain — not from output volume. Commands like `true`, `test -f file`, or `mkdir -p` are legitimate verification steps that produce no output.
+
 ## 0.12.0 - 2026-05-06
 
 Anti-hallucination lie detection tests — three narrative tests that prove the system's core guarantee (80 tests total):

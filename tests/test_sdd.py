@@ -49,7 +49,7 @@ class SddToolingTests(unittest.TestCase):
             self.record_transition(root, change_id, phase)
 
     def test_version_is_defined(self) -> None:
-        self.assertEqual(sdd.VERSION, "0.12.0")
+        self.assertEqual(sdd.VERSION, "0.13.0")
 
     def test_distribution_versions_match(self) -> None:
         pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -1530,6 +1530,44 @@ class SddToolingTests(unittest.TestCase):
         self.assertTrue(pass_rec["passed"])
         self.assertFalse(fail_rec["passed"])
         self.assertEqual(fail_rec["exit_code"], 3)
+
+    def test_execution_allows_empty_stdout_for_successful_command(self) -> None:
+        """Commands that produce no stdout (e.g. `true`, `test -f`) are valid.
+
+        Evidence strength comes from exit_code + log + SHA-256, not from
+        output volume.  Empty stdout must NOT block verify.
+        """
+        import hashlib
+        root = REPO_ROOT / ".tmp-tests" / f"empty-stdout-{uuid.uuid4().hex}"
+        change_id = "empty-stdout"
+        change_dir = self._make_quick_change(root, change_id)
+        self._advance_to_task(root, change_id, change_dir)
+
+        # Command that succeeds with zero stdout and zero stderr.
+        cmd = f'"{sys.executable}" -c "pass"'
+        with contextlib.redirect_stdout(io.StringIO()):
+            findings = sdd.verify_change(root, change_id, [cmd])
+
+        # Verify succeeds — empty output is not an error.
+        self.assertEqual(findings, [])
+        self.assertEqual(sdd.declared_workflow_phase(root, change_id), sdd.WorkflowPhase.VERIFY)
+
+        # Evidence is fully recorded even with empty output.
+        records, rec_findings = sdd.execution_evidence_records(root, change_id)
+        self.assertEqual(rec_findings, [])
+        rec = next(r for r in records if r["command"] == cmd)
+        self.assertTrue(rec["passed"])
+        self.assertEqual(rec["exit_code"], 0)
+
+        # Log file exists and checksum is valid (of the metadata-only content).
+        log_path = root / rec["log_path"]
+        self.assertTrue(log_path.is_file())
+        log_content = log_path.read_text(encoding="utf-8")
+        actual_checksum = hashlib.sha256(log_content.encode("utf-8")).hexdigest()
+        self.assertEqual(actual_checksum, rec["output_checksum"])
+
+        # validate_execution_evidence also passes.
+        self.assertEqual(sdd.validate_execution_evidence(root, change_id), [])
 
 
 if __name__ == "__main__":

@@ -1,6 +1,33 @@
 # Changelog
 
+## 0.16.0 - 2026-05-06
+
+**`install-commands` — AI command scaffolds with scope control (92 tests pass)**
+
+New subcommand `ssd-core install-commands --integration <agent> [--scope repo|user|local]`
+installs six conversational scaffold files into the agent-native command directory.
+
+- **Three installation scopes:**
+  - `repo` (default) — installs inside the project root, committed to VCS.
+  - `user` — installs under the OS home directory (`~/<tool-dir>/`), global across all projects.
+  - `local` — same on-disk path as `repo` but adds a `.gitignore` entry so the files are not committed.
+
+- **Six integrations supported:** `claude-code`, `copilot`, `opencode`, `codex`, `gemini-cli`, `generic`.
+  Each maps to the agent-native command directory for each scope (e.g. claude-code repo → `.claude/commands/`; user → `~/.claude/commands/`).
+
+- **Six conversational scaffold files:** `sdd-propose.md`, `sdd-specify.md`, `sdd-design.md`,
+  `sdd-tasks.md`, `sdd-verify.md`, `sdd-status.md`. Each asks clarifying questions before
+  writing the artifact — spec-kit-style guided authoring rather than passive instruction dumps.
+
+- **Idempotent:** second call skips files that already exist; custom local scaffolds are preserved.
+
+- **`.gitignore` deduplication for `local` scope:** entry is written only once regardless of how many times the command is re-run.
+
+- **New public API:** `install_commands()`, `list_available_integrations()`,
+  `template_commands_root()`, `COMMAND_SCOPES` exported from `ssd_core`.
+
 ## 0.15.0 - 2026-05-06
+
 
 Code review fixes — 8 issues found, all resolved (83 tests pass):
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .cli import (
     COMMAND_GATES,
+    COMMAND_SCOPES,
     AutoStep,
     EngineStep,
     SDDWorkflow,
@@ -18,9 +19,12 @@ from .cli import (
     guard_repository,
     infer_phase_from_artifacts,
     infer_state_from_artifacts,
+    install_commands,
     install_hooks,
+    list_available_integrations,
     print_evidence,
     print_pr_check,
+    template_commands_root,
     transition_workflow,
     validate_execution_evidence,
     validate_verification_evidence,
@@ -31,6 +35,7 @@ from .cli import (
 
 __all__ = [
     "COMMAND_GATES",
+    "COMMAND_SCOPES",
     "AutoStep",
     "EngineStep",
     "SDDWorkflow",
@@ -47,9 +52,12 @@ __all__ = [
     "guard_repository",
     "infer_phase_from_artifacts",
     "infer_state_from_artifacts",
+    "install_commands",
     "install_hooks",
+    "list_available_integrations",
     "print_evidence",
     "print_pr_check",
+    "template_commands_root",
     "transition_workflow",
     "validate_execution_evidence",
     "validate_verification_evidence",

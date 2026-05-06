@@ -267,6 +267,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
+    cmd_parser = subcommands.add_parser(
+        "install-commands",
+        help="install SDD-Core AI command scaffolds for a supported agent integration",
+    )
+    cmd_parser.add_argument(
+        "--integration",
+        required=True,
+        choices=list_available_integrations(),
+        metavar="INTEGRATION",
+        help=(
+            f"target AI agent integration; one of: {', '.join(list_available_integrations())}"
+        ),
+    )
+    cmd_parser.add_argument(
+        "--scope",
+        default="repo",
+        choices=COMMAND_SCOPES,
+        help=(
+            "repo (project-committed, default), "
+            "user (installs in ~/…, global), "
+            "local (project path + .gitignore entry)"
+        ),
+    )
+    cmd_parser.add_argument(
+        "--root",
+        default=".",
+        help="repository root; defaults to the current directory",
+    )
+
     ci_parser = subcommands.add_parser(
         "ci-template",
         help="write a CI workflow template that runs `ssd-core guard` on every push",
@@ -411,6 +440,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "install-hooks":
         root = Path(args.root).resolve()
         findings = install_hooks(root)
+        if findings:
+            return print_findings(root, findings)
+        return 0
+
+    if args.command == "install-commands":
+        root = Path(args.root).resolve()
+        findings = install_commands(root, args.integration, args.scope)
         if findings:
             return print_findings(root, findings)
         return 0

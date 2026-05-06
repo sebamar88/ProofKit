@@ -16,6 +16,15 @@ from ssd_core import cli as sdd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
+_COMMAND_FILE_NAMES = [
+    "sdd-propose.md",
+    "sdd-specify.md",
+    "sdd-design.md",
+    "sdd-tasks.md",
+    "sdd-verify.md",
+    "sdd-status.md",
+]
+
 
 class SddToolingTests(unittest.TestCase):
     @staticmethod
@@ -49,7 +58,7 @@ class SddToolingTests(unittest.TestCase):
             self.record_transition(root, change_id, phase)
 
     def test_version_is_defined(self) -> None:
-        self.assertEqual(sdd.VERSION, "0.15.0")
+        self.assertEqual(sdd.VERSION, "0.16.0")
 
     def test_distribution_versions_match(self) -> None:
         pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -1821,6 +1830,96 @@ class SddToolingTests(unittest.TestCase):
         self.assertFalse(change_dir.exists())
         archives = [p for p in (root / ".sdd" / "archive").iterdir() if p.is_dir()]
         self.assertEqual(len(archives), 1)
+
+
+    # ── install-commands ─────────────────────────────────────────────────────
+
+    def test_install_commands_repo_scope_creates_files_in_integration_dir(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"cmd-repo-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+            findings = sdd.install_commands(root, "claude-code", "repo")
+        self.assertEqual(findings, [])
+        commands_dir = root / ".claude" / "commands"
+        for name in _COMMAND_FILE_NAMES:
+            self.assertTrue((commands_dir / name).is_file(), f"missing {name}")
+
+    def test_install_commands_user_scope_creates_files_in_home_subdir(self) -> None:
+        tmp_home = REPO_ROOT / ".tmp-tests" / f"cmd-home-{uuid.uuid4().hex}"
+        root = REPO_ROOT / ".tmp-tests" / f"cmd-user-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+            findings = sdd.install_commands(root, "generic", "user", _home=tmp_home)
+        self.assertEqual(findings, [])
+        commands_dir = tmp_home / ".sdd" / "commands"
+        for name in _COMMAND_FILE_NAMES:
+            self.assertTrue((commands_dir / name).is_file(), f"missing {name}")
+
+    def test_install_commands_local_scope_writes_files_and_adds_gitignore(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"cmd-local-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+            findings = sdd.install_commands(root, "claude-code", "local")
+        self.assertEqual(findings, [])
+        commands_dir = root / ".claude" / "commands"
+        for name in _COMMAND_FILE_NAMES:
+            self.assertTrue((commands_dir / name).is_file(), f"missing {name}")
+        gitignore = root / ".gitignore"
+        self.assertTrue(gitignore.is_file())
+        self.assertIn(".claude/commands", gitignore.read_text(encoding="utf-8"))
+
+    def test_install_commands_local_scope_is_idempotent_on_gitignore(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"cmd-local-idem-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+            sdd.install_commands(root, "claude-code", "local")
+            # Second call: should not duplicate the gitignore entry.
+            sdd.install_commands(root, "claude-code", "local")
+        gitignore = root / ".gitignore"
+        content = gitignore.read_text(encoding="utf-8")
+        self.assertEqual(content.count(".claude/commands"), 1)
+
+    def test_install_commands_unknown_integration_returns_error(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"cmd-bad-int-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+            findings = sdd.install_commands(root, "not-a-real-tool", "repo")
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].severity, "error")
+
+    def test_install_commands_unknown_scope_returns_error(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"cmd-bad-scope-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+            findings = sdd.install_commands(root, "claude-code", "workspace")
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].severity, "error")
+
+    def test_install_commands_is_idempotent_skips_existing_files(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"cmd-idem-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+            sdd.install_commands(root, "generic", "repo")
+        # Overwrite one file with a custom local scaffold.
+        custom_file = root / ".sdd" / "commands" / "sdd-propose.md"
+        custom_file.write_text("# my custom scaffold", encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()):
+            findings = sdd.install_commands(root, "generic", "repo")
+        self.assertEqual(findings, [])
+        # Custom content must be preserved — not overwritten on second install.
+        self.assertEqual(custom_file.read_text(encoding="utf-8"), "# my custom scaffold")
+
+    def test_list_available_integrations_returns_all_known(self) -> None:
+        integrations = sdd.list_available_integrations()
+        self.assertIsInstance(integrations, list)
+        expected = {"claude-code", "copilot", "opencode", "codex", "gemini-cli", "generic"}
+        self.assertEqual(set(integrations), expected)
+        self.assertEqual(integrations, sorted(integrations))
+
+    def test_packaged_commands_templates_are_present(self) -> None:
+        for name in _COMMAND_FILE_NAMES:
+            tmpl = sdd.template_commands_root() / name
+            self.assertTrue(tmpl.is_file(), f"command template missing: {name}")
 
 
 if __name__ == "__main__":

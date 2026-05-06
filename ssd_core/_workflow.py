@@ -62,6 +62,55 @@ def logical_path(root: Path, value: str) -> Path:
     return root.joinpath(*value.split("/"))
 
 
+# ── install-commands integration directories ───────────────────────────────────
+# "repo"  → relative to the project root (committed to VCS)
+# "user"  → relative to the OS home directory (global, all projects)
+# "local" → same on-disk path as "repo" but the dir is added to .gitignore
+_INTEGRATION_COMMAND_DIRS: dict[str, dict[str, str]] = {
+    "claude-code": {
+        "repo":  ".claude/commands",
+        "user":  ".claude/commands",
+        "local": ".claude/commands",
+    },
+    "copilot": {
+        "repo":  ".github/copilot-prompts/sdd",
+        "user":  ".github/copilot-prompts/sdd",
+        "local": ".github/copilot-prompts/sdd",
+    },
+    "opencode": {
+        "repo":  ".opencode/commands/sdd",
+        "user":  ".config/opencode/commands/sdd",
+        "local": ".opencode/commands/sdd",
+    },
+    "codex": {
+        "repo":  ".codex/commands/sdd",
+        "user":  ".codex/commands/sdd",
+        "local": ".codex/commands/sdd",
+    },
+    "gemini-cli": {
+        "repo":  ".gemini/commands/sdd",
+        "user":  ".gemini/commands/sdd",
+        "local": ".gemini/commands/sdd",
+    },
+    "generic": {
+        "repo":  ".sdd/commands",
+        "user":  ".sdd/commands",
+        "local": ".sdd/commands",
+    },
+}
+
+COMMAND_SCOPES: list[str] = ["repo", "user", "local"]
+
+_COMMAND_FILES: list[str] = [
+    "sdd-propose.md",
+    "sdd-specify.md",
+    "sdd-design.md",
+    "sdd-tasks.md",
+    "sdd-verify.md",
+    "sdd-status.md",
+]
+
+
 def template_sdd_root() -> TemplateResource:
     source_checkout_template = Path(__file__).resolve().parents[1] / ".sdd"
     if source_checkout_template.is_dir():
@@ -74,6 +123,88 @@ def template_docs_root() -> TemplateResource:
     if source_checkout_docs.is_dir():
         return source_checkout_docs
     return files("ssd_core").joinpath("templates", "docs")
+
+
+def template_commands_root() -> TemplateResource:
+    source_checkout = Path(__file__).resolve().parent / "templates" / "commands"
+    if source_checkout.is_dir():
+        return source_checkout
+    return files("ssd_core").joinpath("templates", "commands")  # type: ignore[return-value]
+
+
+def list_available_integrations() -> list[str]:
+    """Return the sorted list of integration names supported by install_commands."""
+    return sorted(_INTEGRATION_COMMAND_DIRS)
+
+
+def _ensure_gitignore_entry(root: Path, rel_path: str) -> None:
+    """Add *rel_path* (as a directory glob) to .gitignore once; never duplicate."""
+    gitignore = root / ".gitignore"
+    entry = rel_path.rstrip("/") + "/"
+    if gitignore.exists():
+        lines = gitignore.read_text(encoding="utf-8").splitlines()
+        if entry in lines or rel_path.rstrip("/") in lines:
+            return
+    with gitignore.open("a", encoding="utf-8") as fh:
+        fh.write(f"\n# SDD-Core local-scope commands (not committed to VCS)\n{entry}\n")
+
+
+def install_commands(
+    root: Path,
+    integration: str,
+    scope: str = "repo",
+    *,
+    _home: Path | None = None,
+) -> list[Finding]:
+    """Install SDD-Core AI command scaffold files for *integration* at the given *scope*.
+
+    Scopes
+    ------
+    repo  (default) Install inside the project root, to be committed to VCS.
+    user            Install in the OS home directory (global; all projects).
+    local           Same on-disk path as repo, but add the directory to .gitignore.
+    """
+    if integration not in _INTEGRATION_COMMAND_DIRS:
+        known = ", ".join(sorted(_INTEGRATION_COMMAND_DIRS))
+        return [Finding("error", None, f"unknown integration '{integration}'; known: {known}")]
+
+    if scope not in COMMAND_SCOPES:
+        return [Finding("error", None, f"unknown scope '{scope}'; must be one of: {', '.join(COMMAND_SCOPES)}")]
+
+    dirs = _INTEGRATION_COMMAND_DIRS[integration]
+    rel_dir = dirs[scope]
+
+    if scope == "user":
+        home = _home or Path.home()
+        target_dir = home / rel_dir
+    else:
+        target_dir = root / rel_dir
+
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    tmpl = template_commands_root()
+    installed: list[str] = []
+    skipped: list[str] = []
+    for filename in _COMMAND_FILES:
+        src = tmpl / filename
+        dst = target_dir / filename
+        if dst.exists():
+            skipped.append(filename)
+            continue
+        copy_template_file(src, dst)
+        installed.append(filename)
+
+    if scope == "local":
+        _ensure_gitignore_entry(root, rel_dir)
+
+    scope_label = "user (~)" if scope == "user" else scope
+    print(_green("\u2714") + f" [{integration}] commands installed ({scope_label}): {target_dir.as_posix()}")
+    for f in installed:
+        print("  " + _dim("-") + f" {f}")
+    if skipped:
+        print(_dim(f"  (skipped {len(skipped)} file(s) that already exist)"))
+
+    return []
 
 
 def copy_template_file(source: TemplateResource, destination: Path) -> None:

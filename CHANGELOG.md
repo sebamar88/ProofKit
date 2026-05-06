@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.14.0 - 2026-05-06
+
+Failure golden path — the system proof's counterpart (83 tests total):
+
+- **`test_golden_path_failure_system_stays_consistent`**: the same end-to-end standard-profile lifecycle as the success golden path, but the verification command **fails** (exit 7). Proves the system stays perfectly consistent under failure: phase stays at TASK, failure evidence is recorded with valid SHA-256 checksum, no archive or spec sync happens, change directory still exists. Then the agent retries with a passing command — verify succeeds, both the failure AND retry records exist in the evidence log, auto-loop closes the change, and `guard --strict-state --require-execution-evidence` passes. If both golden path tests pass, the system is safe under success AND failure.
+
 ## 0.13.0 - 2026-05-06
 
 Golden path end-to-end test + evidence edge-case coverage (82 tests total):

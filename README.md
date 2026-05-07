@@ -10,6 +10,25 @@ If a command didn’t run — or failed — the system blocks progress.
 
 ---
 
+## Why not existing SDD frameworks?
+
+| Feature                          | SDD-Core / ProofKit | Spec-Kit | OpenSpec | BMAD | Agent Teams |
+|----------------------------------|--------------------|----------|----------|------|-------------|
+| Spec-driven workflow             | ✅                 | ✅       | ✅       | ✅   | ⚠️ Partial  |
+| Structured artifacts             | ✅                 | ✅       | ✅       | ✅   | ⚠️ Partial  |
+| Persistent state (on disk)       | ✅                 | ❌       | ⚠️ Partial | ⚠️ Partial | ❌          |
+| Execution verification           | ✅                 | ❌       | ❌       | ❌   | ❌          |
+| Blocks fake completion           | ✅                 | ❌       | ❌       | ❌   | ❌          |
+| Command execution evidence       | ✅                 | ❌       | ❌       | ❌   | ❌          |
+| Checksum validation              | ✅                 | ❌       | ❌       | ❌   | ❌          |
+| Enforced workflow transitions    | ✅                 | ⚠️ Soft  | ⚠️ Soft  | ⚠️ Soft | ❌          |
+| CI / Git hook enforcement        | ✅                 | ❌       | ❌       | ❌   | ❌          |
+| Anti-hallucination guarantees    | ✅                 | ❌       | ❌       | ❌   | ❌          |
+
+> ⚠️ Partial = supported conceptually but not enforced or persisted
+
+---
+
 ## 🚫 The problem
 
 AI says:

@@ -187,22 +187,20 @@ def print_pr_check(root: "Path", change_id: str) -> int:
     print(f"  pipeline  : {_phase_pipeline_str(state.phase, state.profile)}")
 
     if state.is_blocked:
-        print(f"  {_red(chr(0x2717) + ' BLOCKED \u2014 resolve findings before merging')}")
+        print("  " + _red(f"{chr(0x2717)} BLOCKED - resolve findings before merging"))
         for f in state.findings:
             print(f"    {_red(chr(0x2717))} {f.format(root)}")
         return 1
     if state.phase not in {WorkflowPhase.VERIFY, WorkflowPhase.ARCHIVED}:
-        print(f"  {_yellow(chr(0x26a0) + '  change is not yet verified \u2014 do not merge')}")
+        print("  " + _yellow(f"{chr(0x26a0)}  change is not yet verified - do not merge"))
         return 1
     if not records:
-        print(
-            f"  {_yellow(chr(0x26a0) + '  no execution evidence \u2014 run: proofkit verify --command or --discover')}"
-        )
+        print("  " + _yellow(f"{chr(0x26a0)}  no execution evidence - run: proofkit verify --command or --discover"))
         return 1
     if not all(r.get("passed") for r in records):
-        print(f"  {_red(chr(0x2717) + '  execution evidence contains failures \u2014 resolve before merging')}")
+        print("  " + _red(f"{chr(0x2717)}  execution evidence contains failures - resolve before merging"))
         return 1
-    print(f"  {_green(chr(0x2714) + '  governance check passed \u2014 safe to merge')}")
+    print("  " + _green(f"{chr(0x2714)}  governance check passed - safe to merge"))
     return 0
 
 

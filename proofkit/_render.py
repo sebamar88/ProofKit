@@ -25,6 +25,7 @@ from ._types import (
     _cyan,
     _bold,
     _dim,
+    _display_text,
 )
 from ._workflow import (
     validate,
@@ -152,7 +153,7 @@ def print_log(root: Path, change_id: str) -> int:
         action = record.get("action", "?")
         at = record.get("at", "?")
         checksum = str(record.get("checksum", ""))[:8] or "(none)"
-        icon = _PHASE_ICON.get(str(phase), " ")
+        icon = _display_text(_PHASE_ICON.get(str(phase), " "))
         print(f"  {_dim(at)} {icon} {_cyan(f'{phase:<20}')} via {_dim(action):<14} sha256:{_dim(checksum)}")
     return 0
 
@@ -241,7 +242,7 @@ def print_status(root: Path) -> int:
         print("")
         print(_bold("Changes:"))
         for change in changes:
-            icon = _PHASE_ICON.get("archived" if change.is_complete else "propose", " ")
+            icon = _display_text(_PHASE_ICON.get("archived" if change.is_complete else "propose", " "))
             completeness = _green("complete") if change.is_complete else _yellow("incomplete")
             print(f"  {icon} {_bold(change.change_id)} [{_dim(change.profile)}] {completeness}")
             if change.present:
@@ -309,7 +310,7 @@ def _phase_pipeline_str(current: "WorkflowPhase", profile: str) -> str:
             parts.append(_green("\u2714 ") + _dim(phase.value))
         else:
             parts.append(_dim("\u25cb " + phase.value))
-    return " \u2192 ".join(parts)
+    return _display_text(" \u2192 ".join(parts))
 
 
 def print_evidence(root: "Path", change_id: str) -> int:

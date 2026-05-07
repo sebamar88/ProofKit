@@ -13,6 +13,31 @@ VERSION = "0.24.0"
 
 # ── Terminal color helpers ───────────────────────────────────────────────────
 
+_DISPLAY_FALLBACKS = str.maketrans(
+    {
+        "✔": "OK",
+        "✗": "x",
+        "⚠": "!",
+        "○": "o",
+        "◎": "*",
+        "◉": "@",
+        "⟳": "~",
+        "→": "->",
+        "─": "-",
+        "—": "-",
+    }
+)
+
+
+def _display_text(text: str) -> str:
+    """Return *text* adapted to the active stdout encoding when needed."""
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    try:
+        text.encode(encoding)
+    except UnicodeEncodeError:
+        return text.translate(_DISPLAY_FALLBACKS)
+    return text
+
 def _use_color() -> bool:
     """Return True when the terminal supports ANSI color sequences."""
     return (
@@ -24,6 +49,7 @@ def _use_color() -> bool:
 
 
 def _c(code: str, text: str) -> str:
+    text = _display_text(text)
     return f"\033[{code}m{text}\033[0m" if _use_color() else text
 
 

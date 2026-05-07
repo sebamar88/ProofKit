@@ -2078,6 +2078,22 @@ class SddToolingTests(unittest.TestCase):
         content = sdd.read_memory_entry(root, "project")
         self.assertIn("New Section", content)
 
+    def test_append_memory_supports_cp1252_stdout(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"mem-append-cp1252-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+
+        raw = io.BytesIO()
+        cp1252_stdout = io.TextIOWrapper(raw, encoding="cp1252")
+        with contextlib.redirect_stdout(cp1252_stdout):
+            findings = sdd.append_memory(root, "project", "## New Section\n\nSome content.")
+        cp1252_stdout.flush()
+
+        self.assertEqual(findings, [])
+        output = raw.getvalue().decode("cp1252")
+        self.assertIn("Memory updated:", output)
+        self.assertNotIn("\u2714", output)
+
     def test_append_memory_unknown_key_returns_error_finding(self) -> None:
         root = REPO_ROOT / ".tmp-tests" / f"mem-badkey-{uuid.uuid4().hex}"
         with contextlib.redirect_stdout(io.StringIO()):

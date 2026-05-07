@@ -11,8 +11,8 @@ import unittest
 from importlib.resources import files
 from pathlib import Path
 
-import ssd_core
-from ssd_core import cli as sdd
+import proofkit
+from proofkit import cli as sdd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -256,13 +256,13 @@ class TestWorkflow(unittest.TestCase):
         self.assertFalse((root / ".sdd" / "changes" / "guard-login").exists())
 
     def test_public_workflow_orchestrator_is_exported(self) -> None:
-        self.assertIs(ssd_core.SDDWorkflow, sdd.SDDWorkflow)
-        self.assertIs(ssd_core.WorkflowPhase, sdd.WorkflowPhase)
-        self.assertIs(ssd_core.WorkflowFailureKind, sdd.WorkflowFailureKind)
-        self.assertIs(ssd_core.guard_repository, sdd.guard_repository)
-        self.assertIs(ssd_core.install_hooks, sdd.install_hooks)
-        self.assertIs(ssd_core.transition_workflow, sdd.transition_workflow)
-        self.assertIs(ssd_core.declared_workflow_phase, sdd.declared_workflow_phase)
+        self.assertIs(proofkit.SDDWorkflow, sdd.SDDWorkflow)
+        self.assertIs(proofkit.WorkflowPhase, sdd.WorkflowPhase)
+        self.assertIs(proofkit.WorkflowFailureKind, sdd.WorkflowFailureKind)
+        self.assertIs(proofkit.guard_repository, sdd.guard_repository)
+        self.assertIs(proofkit.install_hooks, sdd.install_hooks)
+        self.assertIs(proofkit.transition_workflow, sdd.transition_workflow)
+        self.assertIs(proofkit.declared_workflow_phase, sdd.declared_workflow_phase)
 
     def test_sdd_workflow_blocks_sync_before_required_phase(self) -> None:
         root = REPO_ROOT / ".tmp-tests" / f"workflow-api-block-{uuid.uuid4().hex}"

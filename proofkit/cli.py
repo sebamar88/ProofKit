@@ -131,7 +131,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    run_parser = subcommands.add_parser("run", help="run the ProofKit workflow gate for a change"))
+    run_parser = subcommands.add_parser("run", help="run the ProofKit workflow gate for a change")
     run_parser.add_argument("change_id", help="kebab-case change identifier")
     run_parser.add_argument(
         "--profile",
@@ -188,6 +188,7 @@ def build_parser() -> argparse.ArgumentParser:
     verify_parser.add_argument("change_id", help="kebab-case change identifier")
     verify_parser.add_argument(
         "--command",
+        dest="commands",
         action="append",
         default=[],
         help="verification command to execute from the repository root; may be repeated",
@@ -279,7 +280,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    ext_parser = subcommands.add_parser("extension", help="manage ProofKit extensions"))
+    ext_parser = subcommands.add_parser("extension", help="manage ProofKit extensions")
     ext_sub = ext_parser.add_subparsers(dest="ext_action", required=True)
 
     ext_install = ext_sub.add_parser("install", help="install an extension from a local directory")
@@ -452,7 +453,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "verify":
         root = Path(args.root).resolve()
-        commands: list[str] = list(args.command)
+        commands: list[str] = list(args.commands)
         if args.discover:
             discovered = discover_test_command(root)
             if discovered is None:

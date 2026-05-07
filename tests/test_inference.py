@@ -11,8 +11,8 @@ import unittest
 from importlib.resources import files
 from pathlib import Path
 
-import ssd_core
-from ssd_core import cli as sdd
+import proofkit
+from proofkit import cli as sdd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -84,7 +84,7 @@ class TestInference(unittest.TestCase):
         self.assertEqual(sdd.workflow_state(root, change_id).phase, sdd.WorkflowPhase.PROPOSE)
 
     def test_infer_phase_from_artifacts_is_exported(self) -> None:
-        self.assertIs(ssd_core.infer_phase_from_artifacts, sdd.infer_phase_from_artifacts)
+        self.assertIs(proofkit.infer_phase_from_artifacts, sdd.infer_phase_from_artifacts)
 
     def test_transition_blocks_when_artifacts_behind_target_despite_declared_phase(self) -> None:
         """Even when state.json declares a phase that allows the requested transition,

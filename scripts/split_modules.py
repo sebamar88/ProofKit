@@ -1,18 +1,18 @@
-"""Split ssd_core/cli.py into focused sub-modules.
+"""Split proofkit/cli.py into focused sub-modules.
 
 Result:
-    ssd_core/_types.py     — VERSION, color helpers, constants, enums, dataclasses
-    ssd_core/_workflow.py  — file I/O, state machine, WorkflowEngine (all logic)
-    ssd_core/_render.py    — print_* functions, demos, CI templates
-    ssd_core/cli.py        — _auto_advance, build_parser, main (entry point only)
+    proofkit/_types.py     — VERSION, color helpers, constants, enums, dataclasses
+    proofkit/_workflow.py  — file I/O, state machine, WorkflowEngine (all logic)
+    proofkit/_render.py    — print_* functions, demos, CI templates
+    proofkit/cli.py        — _auto_advance, build_parser, main (entry point only)
 
-Public API (ssd_core/__init__.py) is untouched — imports from cli.py still work
+Public API (proofkit/__init__.py) is untouched — imports from cli.py still work
 because cli.py re-imports everything from the three new modules.
 """
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CLI = ROOT / "ssd_core" / "cli.py"
+CLI = ROOT / "proofkit" / "cli.py"
 
 src = CLI.read_text(encoding="utf-8")
 lines = src.splitlines(keepends=True)
@@ -39,7 +39,7 @@ from typing import ClassVar
 
 types_body = block(22, 370)
 
-(ROOT / "ssd_core" / "_types.py").write_text(
+(ROOT / "proofkit" / "_types.py").write_text(
     TYPES_HEADER + types_body + "\n",
     encoding="utf-8",
 )
@@ -111,7 +111,7 @@ from ._types import (
 
 workflow_body = block(373, 2454)
 
-(ROOT / "ssd_core" / "_workflow.py").write_text(
+(ROOT / "proofkit" / "_workflow.py").write_text(
     WORKFLOW_HEADER + workflow_body + "\n",
     encoding="utf-8",
 )
@@ -185,7 +185,7 @@ from ._workflow import (
 
 render_body = block(2457, 3260)
 
-(ROOT / "ssd_core" / "_render.py").write_text(
+(ROOT / "proofkit" / "_render.py").write_text(
     RENDER_HEADER + render_body + "\n",
     encoding="utf-8",
 )

@@ -11,8 +11,8 @@ import unittest
 from importlib.resources import files
 from pathlib import Path
 
-import ssd_core
-from ssd_core import cli as sdd
+import proofkit
+from proofkit import cli as sdd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -58,7 +58,7 @@ class SddToolingTests(unittest.TestCase):
             self.record_transition(root, change_id, phase)
 
     def test_version_is_defined(self) -> None:
-        self.assertEqual(sdd.VERSION, "0.21.0")
+        self.assertEqual(sdd.VERSION, "0.24.0")
 
     def test_distribution_versions_match(self) -> None:
         pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -68,7 +68,7 @@ class SddToolingTests(unittest.TestCase):
         self.assertEqual(package["version"], sdd.VERSION)
 
     def test_packaged_templates_are_present(self) -> None:
-        template_root = files("ssd_core").joinpath("templates")
+        template_root = files("proofkit").joinpath("templates")
 
         self.assertTrue(template_root.joinpath("sdd", "constitution.md").is_file())
         self.assertTrue(template_root.joinpath("sdd", "state.json").is_file())
@@ -470,13 +470,13 @@ class SddToolingTests(unittest.TestCase):
         self.assertFalse((root / ".sdd" / "changes" / "guard-login").exists())
 
     def test_public_workflow_orchestrator_is_exported(self) -> None:
-        self.assertIs(ssd_core.SDDWorkflow, sdd.SDDWorkflow)
-        self.assertIs(ssd_core.WorkflowPhase, sdd.WorkflowPhase)
-        self.assertIs(ssd_core.WorkflowFailureKind, sdd.WorkflowFailureKind)
-        self.assertIs(ssd_core.guard_repository, sdd.guard_repository)
-        self.assertIs(ssd_core.install_hooks, sdd.install_hooks)
-        self.assertIs(ssd_core.transition_workflow, sdd.transition_workflow)
-        self.assertIs(ssd_core.declared_workflow_phase, sdd.declared_workflow_phase)
+        self.assertIs(proofkit.SDDWorkflow, sdd.SDDWorkflow)
+        self.assertIs(proofkit.WorkflowPhase, sdd.WorkflowPhase)
+        self.assertIs(proofkit.WorkflowFailureKind, sdd.WorkflowFailureKind)
+        self.assertIs(proofkit.guard_repository, sdd.guard_repository)
+        self.assertIs(proofkit.install_hooks, sdd.install_hooks)
+        self.assertIs(proofkit.transition_workflow, sdd.transition_workflow)
+        self.assertIs(proofkit.declared_workflow_phase, sdd.declared_workflow_phase)
 
     def test_sdd_workflow_blocks_sync_before_required_phase(self) -> None:
         root = REPO_ROOT / ".tmp-tests" / f"workflow-api-block-{uuid.uuid4().hex}"
@@ -865,12 +865,12 @@ class SddToolingTests(unittest.TestCase):
         self.assertTrue(any("placeholder" in m for m in messages))
 
     def test_public_verify_change_is_exported(self) -> None:
-        self.assertIs(ssd_core.verify_change, sdd.verify_change)
-        self.assertIs(ssd_core.validate_verification_evidence, sdd.validate_verification_evidence)
-        self.assertIs(ssd_core.validate_execution_evidence, sdd.validate_execution_evidence)
+        self.assertIs(proofkit.verify_change, sdd.verify_change)
+        self.assertIs(proofkit.validate_verification_evidence, sdd.validate_verification_evidence)
+        self.assertIs(proofkit.validate_execution_evidence, sdd.validate_execution_evidence)
 
     def test_gate_command_is_exported(self) -> None:
-        self.assertIs(ssd_core.gate_command, sdd.gate_command)
+        self.assertIs(proofkit.gate_command, sdd.gate_command)
 
     def test_archive_blocks_when_artifact_edited_after_archive_phase_recorded(self) -> None:
         root = REPO_ROOT / ".tmp-tests" / f"gate-stale-{uuid.uuid4().hex}"
@@ -1040,8 +1040,8 @@ class SddToolingTests(unittest.TestCase):
         self.assertNotIn("sync-specs", allowed)
 
     def test_workflow_engine_is_exported(self) -> None:
-        self.assertIs(ssd_core.WorkflowEngine, sdd.WorkflowEngine)
-        self.assertIs(ssd_core.COMMAND_GATES, sdd.COMMAND_GATES)
+        self.assertIs(proofkit.WorkflowEngine, sdd.WorkflowEngine)
+        self.assertIs(proofkit.COMMAND_GATES, sdd.COMMAND_GATES)
 
     # --- validate_verification_matrix ---
 
@@ -1084,7 +1084,7 @@ class SddToolingTests(unittest.TestCase):
         self.assertEqual(findings, [])
 
     def test_validate_verification_matrix_is_exported(self) -> None:
-        self.assertIs(ssd_core.validate_verification_matrix, sdd.validate_verification_matrix)
+        self.assertIs(proofkit.validate_verification_matrix, sdd.validate_verification_matrix)
 
     def test_check_change_blocks_when_matrix_has_no_passing_row(self) -> None:
         root = REPO_ROOT / ".tmp-tests" / f"check-matrix-{uuid.uuid4().hex}"
@@ -1162,7 +1162,7 @@ class SddToolingTests(unittest.TestCase):
         self.assertEqual(sdd.workflow_state(root, change_id).phase, sdd.WorkflowPhase.PROPOSE)
 
     def test_infer_phase_from_artifacts_is_exported(self) -> None:
-        self.assertIs(ssd_core.infer_phase_from_artifacts, sdd.infer_phase_from_artifacts)
+        self.assertIs(proofkit.infer_phase_from_artifacts, sdd.infer_phase_from_artifacts)
 
     def test_transition_blocks_when_artifacts_behind_target_despite_declared_phase(self) -> None:
         """Even when state.json declares a phase that allows the requested transition,
@@ -1996,7 +1996,7 @@ class SddToolingTests(unittest.TestCase):
         (src / "manifest.json").write_text(json.dumps(manifst), encoding="utf-8")
         (src / "hooks.py").write_text(
             "def on_verify(root, change_id, findings):\n"
-            "    from ssd_core._types import Finding\n"
+            "    from proofkit._types import Finding\n"
             "    return findings + [Finding('error', None, 'hook-injected-error')]\n",
             encoding="utf-8",
         )
@@ -2018,7 +2018,7 @@ class SddToolingTests(unittest.TestCase):
         (src / "manifest.json").write_text(json.dumps(manifst), encoding="utf-8")
         (src / "hooks.py").write_text(
             "def on_verify(root, change_id, findings):\n"
-            "    from ssd_core._types import Finding\n"
+            "    from proofkit._types import Finding\n"
             "    return findings + [Finding('error', None, 'should-not-appear')]\n",
             encoding="utf-8",
         )

@@ -20,7 +20,7 @@ import uuid
 import unittest
 from pathlib import Path
 
-from ssd_core import cli as sdd
+from proofkit import cli as sdd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -205,7 +205,10 @@ class TestEvidenceRecordsAccumulate(unittest.TestCase):
         _make_verification_ready(root, change_id)
         _advance_to_task(root, change_id)
 
-        commands = ["python -c \"pass\"", "python -c \"import sys; sys.exit(0)\""]
+        commands = [
+            f'"{sys.executable}" -c "pass"',
+            f'"{sys.executable}" -c "import sys; sys.exit(0)"',
+        ]
         with contextlib.redirect_stdout(io.StringIO()):
             findings = sdd.verify_change(root, change_id, commands=commands)
         self.assertEqual(findings, [], findings)

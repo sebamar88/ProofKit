@@ -45,28 +45,28 @@ def template_sdd_root() -> TemplateResource:
     source_checkout_template = Path(__file__).resolve().parents[1] / ".sdd"
     if source_checkout_template.is_dir():
         return source_checkout_template
-    return files("ssd_core").joinpath("templates", "sdd")  # type: ignore[return-value]
+    return files("proofkit").joinpath("templates", "sdd")  # type: ignore[return-value]
 
 
 def template_docs_root() -> TemplateResource:
     source_checkout_docs = Path(__file__).resolve().parents[1] / "docs"
     if source_checkout_docs.is_dir():
         return source_checkout_docs
-    return files("ssd_core").joinpath("templates", "docs")
+    return files("proofkit").joinpath("templates", "docs")
 
 
 def template_commands_root() -> TemplateResource:
     source_checkout = Path(__file__).resolve().parent / "templates" / "commands"
     if source_checkout.is_dir():
         return source_checkout
-    return files("ssd_core").joinpath("templates", "commands")  # type: ignore[return-value]
+    return files("proofkit").joinpath("templates", "commands")  # type: ignore[return-value]
 
 
 def template_memory_root() -> TemplateResource:
     source_checkout = Path(__file__).resolve().parent / "templates" / "sdd" / "memory"
     if source_checkout.is_dir():
         return source_checkout
-    return files("ssd_core").joinpath("templates", "sdd", "memory")  # type: ignore[return-value]
+    return files("proofkit").joinpath("templates", "sdd", "memory")  # type: ignore[return-value]
 
 
 def list_available_integrations() -> list[str]:
@@ -93,7 +93,7 @@ def append_memory(root: Path, key: str, content: str) -> list[Finding]:
         return [Finding("error", None, f"unknown memory key '{key}'; must be one of: {known}")]
     path = memory_path(root, key)
     if not path.is_file():
-        return [Finding("error", path, f"memory file not found: {path.name} — run `ssd-core init` first")]
+        return [Finding("error", path, f"memory file not found: {path.name} — run `proofkit init` first")]
     existing = path.read_text(encoding="utf-8")
     separator = "\n\n" if not existing.endswith("\n\n") else ""
     path.write_text(existing + separator + content + "\n", encoding="utf-8")

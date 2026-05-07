@@ -11,8 +11,8 @@ import unittest
 from importlib.resources import files
 from pathlib import Path
 
-import ssd_core
-from ssd_core import cli as sdd
+import proofkit
+from proofkit import cli as sdd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -191,7 +191,7 @@ class TestFeatures(unittest.TestCase):
         (src / "manifest.json").write_text(json.dumps(manifst), encoding="utf-8")
         (src / "hooks.py").write_text(
             "def on_verify(root, change_id, findings):\n"
-            "    from ssd_core._types import Finding\n"
+            "    from proofkit._types import Finding\n"
             "    return findings + [Finding('error', None, 'hook-injected-error')]\n",
             encoding="utf-8",
         )
@@ -213,7 +213,7 @@ class TestFeatures(unittest.TestCase):
         (src / "manifest.json").write_text(json.dumps(manifst), encoding="utf-8")
         (src / "hooks.py").write_text(
             "def on_verify(root, change_id, findings):\n"
-            "    from ssd_core._types import Finding\n"
+            "    from proofkit._types import Finding\n"
             "    return findings + [Finding('error', None, 'should-not-appear')]\n",
             encoding="utf-8",
         )

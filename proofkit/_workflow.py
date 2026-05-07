@@ -1,4 +1,4 @@
-"""Public interface for the ssd_core workflow subsystem.
+"""Public interface for the proofkit workflow subsystem.
 
 This module is a thin aggregator — all implementation lives in the _wf_*
 sub-modules.  External callers (cli.py, __init__.py, tests) continue to

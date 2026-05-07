@@ -28,7 +28,7 @@ dependencies = []
 proofkit = "proofkit.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["ssd_core*"]
+include = ["proofkit*"]
 
 [tool.setuptools.package-data]
-ssd_core = ["templates/**/*"]
+proofkit = ["templates/**/*"]

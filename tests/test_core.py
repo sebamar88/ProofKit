@@ -11,8 +11,8 @@ import unittest
 from importlib.resources import files
 from pathlib import Path
 
-import ssd_core
-from ssd_core import cli as sdd
+import proofkit
+from proofkit import cli as sdd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -32,7 +32,7 @@ class TestCore(unittest.TestCase):
         return [finding.message for finding in findings]
 
     def test_version_is_defined(self) -> None:
-        self.assertEqual(sdd.VERSION, "0.23.0")
+        self.assertEqual(sdd.VERSION, "0.24.0")
 
     def test_distribution_versions_match(self) -> None:
         pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -42,7 +42,7 @@ class TestCore(unittest.TestCase):
         self.assertEqual(package["version"], sdd.VERSION)
 
     def test_packaged_templates_are_present(self) -> None:
-        template_root = files("ssd_core").joinpath("templates")
+        template_root = files("proofkit").joinpath("templates")
 
         self.assertTrue(template_root.joinpath("sdd", "constitution.md").is_file())
         self.assertTrue(template_root.joinpath("sdd", "state.json").is_file())

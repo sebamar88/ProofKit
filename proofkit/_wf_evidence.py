@@ -61,7 +61,7 @@ def append_execution_evidence_to_verification(
     text = set_frontmatter_value(text, "updated", date.today().isoformat())
     text = text.replace("pending verification evidence", "execution evidence recorded")
     text = re.sub(r"(\|\s*)not-run(\s*\|)", r"\1pass\2", text)
-    text = text.replace("Record host-project verification actions.", "Recorded by `ssd-core verify --command`.")
+    text = text.replace("Record host-project verification actions.", "Recorded by `proofkit verify --command`.")
 
     lines = ["", "## Execution Evidence", ""]
     for record in records:
@@ -295,7 +295,7 @@ def verify_change(
         change_id,
         WorkflowPhase.VERIFY,
         summary.profile,
-        f"Run `ssd-core transition {change_id} archive`.",
+        f"Run `proofkit transition {change_id} archive`.",
         [],
     )
     record_workflow_state(root, new_state, "verify")

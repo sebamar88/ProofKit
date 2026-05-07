@@ -50,16 +50,16 @@ from ._extensions import run_extension_hooks
 def _suggested_command(phase: WorkflowPhase, change_id: str) -> str | None:
     """Return the canonical CLI command that advances *change_id* past *phase*."""
     mapping: dict[WorkflowPhase, str | None] = {
-        WorkflowPhase.NOT_STARTED:    f"ssd-core new {change_id} --profile <profile> --title '<intent>'",
-        WorkflowPhase.PROPOSE:        f"ssd-core transition {change_id} propose",
-        WorkflowPhase.SPECIFY:        f"ssd-core transition {change_id} specify",
-        WorkflowPhase.DESIGN:         f"ssd-core transition {change_id} design",
-        WorkflowPhase.TASK:           f"ssd-core transition {change_id} task",
-        WorkflowPhase.VERIFY:         f"ssd-core verify {change_id} --command '<test-command>'",
-        WorkflowPhase.CRITIQUE:       f"ssd-core transition {change_id} archive-record",
-        WorkflowPhase.ARCHIVE_RECORD: f"ssd-core transition {change_id} sync-specs",
-        WorkflowPhase.SYNC_SPECS:     f"ssd-core sync-specs {change_id}",
-        WorkflowPhase.ARCHIVE:        f"ssd-core archive {change_id}",
+        WorkflowPhase.NOT_STARTED:    f"proofkit new {change_id} --profile <profile> --title '<intent>'",
+        WorkflowPhase.PROPOSE:        f"proofkit transition {change_id} propose",
+        WorkflowPhase.SPECIFY:        f"proofkit transition {change_id} specify",
+        WorkflowPhase.DESIGN:         f"proofkit transition {change_id} design",
+        WorkflowPhase.TASK:           f"proofkit transition {change_id} task",
+        WorkflowPhase.VERIFY:         f"proofkit verify {change_id} --command '<test-command>'",
+        WorkflowPhase.CRITIQUE:       f"proofkit transition {change_id} archive-record",
+        WorkflowPhase.ARCHIVE_RECORD: f"proofkit transition {change_id} sync-specs",
+        WorkflowPhase.SYNC_SPECS:     f"proofkit sync-specs {change_id}",
+        WorkflowPhase.ARCHIVE:        f"proofkit archive {change_id}",
         WorkflowPhase.ARCHIVED:       None,
         WorkflowPhase.BLOCKED:        None,
     }
@@ -88,7 +88,7 @@ class EngineStep:
 
 @dataclass(frozen=True)
 class AutoStep:
-    """Return type for ``WorkflowEngine.execute_next()`` and ``ssd-core auto``."""
+    """Return type for ``WorkflowEngine.execute_next()`` and ``proofkit auto``."""
 
     executed_command: str | None
     step: EngineStep

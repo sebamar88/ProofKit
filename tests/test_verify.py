@@ -11,8 +11,8 @@ import unittest
 from importlib.resources import files
 from pathlib import Path
 
-import ssd_core
-from ssd_core import cli as sdd
+import proofkit
+from proofkit import cli as sdd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -242,12 +242,12 @@ class TestVerify(unittest.TestCase):
         self.assertTrue(any("placeholder" in m for m in messages))
 
     def test_public_verify_change_is_exported(self) -> None:
-        self.assertIs(ssd_core.verify_change, sdd.verify_change)
-        self.assertIs(ssd_core.validate_verification_evidence, sdd.validate_verification_evidence)
-        self.assertIs(ssd_core.validate_execution_evidence, sdd.validate_execution_evidence)
+        self.assertIs(proofkit.verify_change, sdd.verify_change)
+        self.assertIs(proofkit.validate_verification_evidence, sdd.validate_verification_evidence)
+        self.assertIs(proofkit.validate_execution_evidence, sdd.validate_execution_evidence)
 
     def test_gate_command_is_exported(self) -> None:
-        self.assertIs(ssd_core.gate_command, sdd.gate_command)
+        self.assertIs(proofkit.gate_command, sdd.gate_command)
 
     def test_archive_blocks_when_artifact_edited_after_archive_phase_recorded(self) -> None:
         root = REPO_ROOT / ".tmp-tests" / f"gate-stale-{uuid.uuid4().hex}"
@@ -417,8 +417,8 @@ class TestVerify(unittest.TestCase):
         self.assertNotIn("sync-specs", allowed)
 
     def test_workflow_engine_is_exported(self) -> None:
-        self.assertIs(ssd_core.WorkflowEngine, sdd.WorkflowEngine)
-        self.assertIs(ssd_core.COMMAND_GATES, sdd.COMMAND_GATES)
+        self.assertIs(proofkit.WorkflowEngine, sdd.WorkflowEngine)
+        self.assertIs(proofkit.COMMAND_GATES, sdd.COMMAND_GATES)
 
     # --- validate_verification_matrix ---
 
@@ -461,7 +461,7 @@ class TestVerify(unittest.TestCase):
         self.assertEqual(findings, [])
 
     def test_validate_verification_matrix_is_exported(self) -> None:
-        self.assertIs(ssd_core.validate_verification_matrix, sdd.validate_verification_matrix)
+        self.assertIs(proofkit.validate_verification_matrix, sdd.validate_verification_matrix)
 
     def test_check_change_blocks_when_matrix_has_no_passing_row(self) -> None:
         root = REPO_ROOT / ".tmp-tests" / f"check-matrix-{uuid.uuid4().hex}"

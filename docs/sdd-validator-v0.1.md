@@ -26,61 +26,61 @@ python -m pip install -e .
 Show the installed CLI version:
 
 ```text
-ssd-core version
+proofkit version
 ```
 
 Validate the current repository:
 
 ```text
-ssd-core validate
+proofkit validate
 ```
 
-Initialize SSD-Core in a repository:
+Initialize ProofKit in a repository:
 
 ```text
-ssd-core init --root path-to-repository
+proofkit init --root path-to-repository
 ```
 
 Validate another repository root:
 
 ```text
-ssd-core validate --root path-to-repository
+proofkit validate --root path-to-repository
 ```
 
 Show current SDD status:
 
 ```text
-ssd-core status
+proofkit status
 ```
 
 Check whether a change is ready to archive:
 
 ```text
-ssd-core check add-search
+proofkit check add-search
 ```
 
 Archive a verified change:
 
 ```text
-ssd-core archive add-search
+proofkit archive add-search
 ```
 
 Sync a verified delta spec into living specs:
 
 ```text
-ssd-core sync-specs add-search
+proofkit sync-specs add-search
 ```
 
 Create a standard change:
 
 ```text
-ssd-core new add-search --profile standard --title "Add search"
+proofkit new add-search --profile standard --title "Add search"
 ```
 
 Create a change in another repository root:
 
 ```text
-ssd-core new fix-login --profile bugfix --root path-to-repository
+proofkit new fix-login --profile bugfix --root path-to-repository
 ```
 
 ## Checks

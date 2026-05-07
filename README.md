@@ -186,7 +186,7 @@ Outcome: the code change, specs, executed verification evidence, state transitio
 The CLI is not the only binding layer. The Python core exposes a strict workflow object for tools, adapters, and IDE integrations:
 
 ```python
-from ssd_core import SDDWorkflow, WorkflowPhase
+from proofkit import SDDWorkflow, WorkflowPhase
 
 workflow = SDDWorkflow("my-app")
 

@@ -2,7 +2,7 @@
   "schema": "sdd.adapter-capabilities.v1",
   "adapter": "qwen-code",
   "version": "0.1.0",
-  "description": "Concrete adapter manifest for running SSD-Core with Qwen Code while keeping all lifecycle state in repository artifacts.",
+  "description": "Concrete adapter manifest for running ProofKit with Qwen Code while keeping all lifecycle state in repository artifacts.",
   "host": {
     "agent_runtime": "qwen-code",
     "operating_system": "any",
@@ -38,7 +38,7 @@
     "command_execution": true,
     "manual_evidence": true,
     "screenshot_evidence": "external-or-manual",
-    "required_core_commands": ["ssd-core validate", "ssd-core status", "ssd-core check <change-id>"]
+    "required_core_commands": ["proofkit validate", "proofkit status", "proofkit check <change-id>"]
   },
   "state": {
     "source_of_truth": "repository-artifacts",

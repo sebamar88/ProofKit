@@ -133,7 +133,7 @@ def _infer_workflow_state(root: Path, change_id: str) -> WorkflowState:
             change_id,
             WorkflowPhase.SYNC_SPECS,
             summary.profile,
-            f"Run `ssd-core sync-specs {change_id} --root <repo>`.",
+            f"Run `proofkit sync-specs {change_id} --root <repo>`.",
             [],
         )
 
@@ -141,7 +141,7 @@ def _infer_workflow_state(root: Path, change_id: str) -> WorkflowState:
         change_id,
         WorkflowPhase.ARCHIVE,
         summary.profile,
-        f"Run `ssd-core archive {change_id} --root <repo>`.",
+        f"Run `proofkit archive {change_id} --root <repo>`.",
         [],
     )
 
@@ -236,7 +236,7 @@ def run_workflow(
             change_id,
             WorkflowPhase.BLOCKED,
             profile,
-            "Initialize or repair the SSD-Core foundation before running a workflow.",
+            "Initialize or repair the ProofKit foundation before running a workflow.",
             foundation_errors,
         )
 

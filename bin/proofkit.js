@@ -16,13 +16,13 @@ function pythonCandidates() {
     return [
       ["py", ["-3"]],
       ["python", []],
-      ["python3", []]
+      ["python3", []],
     ];
   }
 
   return [
     ["python3", []],
-    ["python", []]
+    ["python", []],
   ];
 }
 
@@ -35,7 +35,7 @@ function runPython(command, prefixArgs) {
   return spawnSync(command, [...prefixArgs, "-m", "proofkit", ...args], {
     cwd: process.cwd(),
     env,
-    stdio: "inherit"
+    stdio: "inherit",
   });
 }
 
@@ -45,10 +45,10 @@ for (const [command, prefixArgs] of pythonCandidates()) {
     process.exit(result.status === null ? 1 : result.status);
   }
   if (result.error.code !== "ENOENT") {
-    console.error(`ssd-core compatibility wrapper failed to launch ProofKit via ${command}: ${result.error.message}`);
+    console.error(`proofkit failed to launch Python via ${command}: ${result.error.message}`);
     process.exit(1);
   }
 }
 
-console.error("ssd-core has been renamed to proofkit. Set PROOFKIT_PYTHON to a Python 3.11+ executable if needed.");
+console.error("proofkit requires Python 3.11+ on PATH. Set PROOFKIT_PYTHON to a Python executable if needed.");
 process.exit(1);

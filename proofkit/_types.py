@@ -8,7 +8,7 @@ from enum import Enum
 from pathlib import Path
 from typing import ClassVar, Iterable, Protocol
 
-VERSION = "0.23.0"
+VERSION = "0.24.0"
 
 
 # ── Terminal color helpers ───────────────────────────────────────────────────
@@ -334,8 +334,8 @@ PHASE_NEXT_ACTIONS: dict[WorkflowPhase, str] = {
     WorkflowPhase.VERIFY:         "Record passing evidence in verification.md and set status to verified.",
     WorkflowPhase.CRITIQUE:       "Resolve critique.md and set status to ready or verified.",
     WorkflowPhase.ARCHIVE_RECORD: "Complete archive.md and set status to ready.",
-    WorkflowPhase.SYNC_SPECS:     "Run `ssd-core sync-specs <change_id> --root <repo>`.",
-    WorkflowPhase.ARCHIVE:        "Run `ssd-core archive <change_id> --root <repo>`.",
+    WorkflowPhase.SYNC_SPECS:     "Run `proofkit sync-specs <change_id> --root <repo>`.",
+    WorkflowPhase.ARCHIVE:        "Run `proofkit archive <change_id> --root <repo>`.",
     WorkflowPhase.ARCHIVED:       "Review archived change evidence.",
     WorkflowPhase.BLOCKED:        "Resolve blocking findings before continuing.",
 }

@@ -1,17 +1,17 @@
 ---
 schema: sdd.adapter-authoring.v1
-title: SSD-Core Adapter Authoring Guide v0.1
+title: ProofKit Adapter Authoring Guide v0.1
 status: draft
 date: 2026-05-03
 audience: adapter-authors
 scope: adapter-guide
 ---
 
-# SSD-Core Adapter Authoring Guide v0.1
+# ProofKit Adapter Authoring Guide v0.1
 
 ## Purpose
 
-An SSD-Core adapter maps portable Markdown contracts to a concrete runtime without changing the protocol.
+An ProofKit adapter maps portable Markdown contracts to a concrete runtime without changing the protocol.
 
 Adapters may target agent CLIs, IDEs, CI systems, local scripts, or manual team workflows.
 

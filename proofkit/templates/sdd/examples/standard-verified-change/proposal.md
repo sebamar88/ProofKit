@@ -12,7 +12,7 @@ updated: 2026-05-03
 
 ## Intent
 
-Demonstrate a complete standard-profile SSD-Core change without modifying product code.
+Demonstrate a complete standard-profile ProofKit change without modifying product code.
 
 ## Scope
 

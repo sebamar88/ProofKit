@@ -1,17 +1,43 @@
-# SSD-Core
+# SDD-Core
 
-**Governance layer for AI-driven development.**
+> **Make AI prove it works.**
 
-SSD-Core prevents the two worst failure modes of agent-assisted coding:
+SDD-Core is a verification engine for AI-driven development.
 
-- **Hallucinated completion** — "the agent said it passed" with no evidence
-- **Vanishing intent** — decisions and specs disappear when the chat scrolls away
+It prevents agents from claiming work is complete without real execution evidence.
 
-It does this by inserting a protocol between the agent and the repository. The agent must write down the change before implementing it, must close all tasks before verifying, and must produce real checksummed evidence before archiving. The protocol is file-based, version-controlled, and agent-agnostic.
+If a command didn’t run — or failed — the system blocks progress.
+
+---
+
+## 🚫 The problem
+
+AI says:
+
+> "Done"
+
+Reality:
+
+```bash
+npm test
+# FAIL
+```
+
+---
+
+## ✅ With SDD-Core
+
+```bash
+ssd-core verify --require-execution-evidence
+```
+
+**Result:**
 
 ```text
-Idea → Spec → Design → Tasks → Verified Change → Living Specs → Archive
+BLOCKED: command failed (exit_code=1)
 ```
+
+The system forces real execution before accepting completion.
 
 ---
 
@@ -224,25 +250,6 @@ That makes ungoverned commits fail locally. CI can run the same `guard` command 
 
 ---
 
-## When To Use It
-
-Use SSD-Core for:
-
-- teams shipping agent-assisted code to production
-- multi-agent workflows that need shared ground truth
-- risky changes where "the agent said it passed" is not enough
-- projects that need auditable specs and verification history
-- orgs evaluating multiple coding agents without rewriting workflow rules
-
-Do not use SSD-Core for:
-
-- throwaway prototypes
-- solo scripts where chat history is enough
-- teams that do not want specs, tasks, or verification gates
-- projects looking for an agent runtime instead of a protocol layer
-
----
-
 ## Reference
 
 ### Command Guide
@@ -275,89 +282,6 @@ ssd-core --trace transition my-change specify --root .
 # [TRACE] INFERENCE    → workflow_state my-change
 ```
 
-### Repository Contract
-
-```text
-.sdd/
-  adapters/      agent/runtime capability manifests
-  agents/        portable role contracts
-  archive/       completed change records
-  changes/       active governed changes
-  evidence/      command execution logs and checksums
-  profiles/      rigor levels by change type
-  schemas/       metadata and evidence schemas
-  skills/        portable workflow capabilities
-  specs/         living behavior specs
-  state.json     declared workflow phases and artifact checksums
-```
-
-Core rule: no archive without verification evidence.
-
-### Profiles
-
-SSD-Core ships six profiles:
-
-- `quick`: low-risk, obvious implementation path
-- `standard`: default feature/change flow
-- `bugfix`: regression-first repair flow
-- `refactor`: behavior lock before cleanup
-- `enterprise`: higher governance and approval weight
-- `research`: evidence-first investigation flow
-
-Use the smallest safe profile for the change type.
-
-### Adapters
-
-The generic baseline is `.sdd/adapters/generic-markdown.json`.
-
-Concrete capability manifests included in v0.1:
-
-- Claude Code: `.sdd/adapters/claude-code.json`
-- Codex: `.sdd/adapters/codex.json`
-- Cursor: `.sdd/adapters/cursor.json`
-- Gemini CLI: `.sdd/adapters/gemini-cli.json`
-- GitHub Copilot: `.sdd/adapters/github-copilot.json`
-- OpenCode: `.sdd/adapters/opencode.json`
-- Qwen Code: `.sdd/adapters/qwen-code.json`
-
-See [docs/adapters-v0.1.md](docs/adapters-v0.1.md) and [docs/adapter-authoring-v0.1.md](docs/adapter-authoring-v0.1.md).
-
-### Principles
-
-- DRY: avoid duplicated logic, contracts, and workflow decisions
-- KISS: choose the simplest design that preserves correctness
-- YAGNI: do not ship speculative mechanisms
-- SOLID: prefer focused modules and stable boundaries
-
-SSD-Core specifics:
-
-- keep the core small
-- push runtime specifics into adapters
-- prefer files over chat memory
-- prefer evidence over confidence
-- never archive incomplete work quietly
-
-### Team Path
-
-1. Read the protocol baseline: [docs/sdd-core-protocol-v0.1.md](docs/sdd-core-protocol-v0.1.md)
-2. Align adapter boundaries: [docs/adapter-contract-v0.1.md](docs/adapter-contract-v0.1.md)
-3. Pick default profiles for change types
-4. Require `ssd-core check` before merge or archive
-5. Run `python scripts/release_check.py` in CI for SSD-Core itself
-
-### Production Readiness
-
-Run the full release gate locally:
-
-```text
-python scripts/release_check.py
-```
-
-See:
-
-- [docs/production-readiness-v0.1.md](docs/production-readiness-v0.1.md)
-- [docs/superpowers/plans/2026-05-03-v0.1-closure-week.md](docs/superpowers/plans/2026-05-03-v0.1-closure-week.md)
-
 ---
 
 ## Current Status
@@ -366,44 +290,14 @@ Current release: `v0.23.0`
 
 Production-ready:
 
-- protocol, constitution, profiles, schemas
-- concrete adapter manifests for major runtimes (Codex, Claude Code, Gemini CLI, OpenCode, Qwen Code)
-- dependency-free reference CLI
-- packaged templates and docs
-- cross-platform release check and CI
-- npm package published as `ssd-core`
-- workflow binding through `ssd-core run`
-- importable strict orchestrator through `SDDWorkflow`
-- agent execution loop through `WorkflowEngine.next_step()` → `EngineStep`
-- hard enforcement through `ssd-core guard` and git pre-commit hooks
-- explicit `.sdd/state.json` registry with validated phase transitions and artifact checksums
-- executable verification evidence through `ssd-core verify --command`
-- annotated Golden Path demo through `ssd-core demo`
-- `--trace` mode for component-level debugging (`ENGINE → REGISTRY → EVIDENCE → INFERENCE`)
-- 133 tests including 10 cross-module contract tests
-- modular architecture: no module > 500 lines
-
-Deferred to future versions:
-
-- deeper artifact JSON Schema validation
-- semantic living spec merge
-- executable runtime command wrappers for adapters
-- richer profile templates
-- a full demo repository with real application code
+- contract-tested modular architecture
+- execution-verified workflows with checksummed evidence
+- strict guard enforcement for CI and git hooks
+- `--trace` mode for component-level debugging
+- Golden Path demo and CLI tooling
 
 ---
 
-## Influences And Attribution
-
-SSD-Core is original work, informed by MIT-licensed workflow ideas from:
-
-- [GitHub Spec Kit](https://github.com/github/spec-kit)
-- [OpenSpec](https://github.com/Fission-AI/OpenSpec)
-- [Agent Teams Lite](https://github.com/Gentleman-Programming/agent-teams-lite)
-- [BMAD-METHOD](https://github.com/bmad-code-org/BMAD-METHOD)
-
-Attribution and compatibility notes are in [NOTICE.md](NOTICE.md).
-
 ## License
 
-SSD-Core is released under the [MIT License](LICENSE).
+MIT

@@ -3,7 +3,7 @@ schema: sdd.document.v1
 artifact: production-readiness
 status: active
 created: 2026-05-03
-updated: 2026-05-03
+updated: 2026-05-07
 ---
 
 # ProofKit v0.1 Production Readiness
@@ -16,7 +16,9 @@ It does not mean the protocol is finished. It means the current framework can be
 
 - The reference CLI is dependency-free at runtime.
 - The CLI installs as the `proofkit` command from a Python wheel.
+- Stable Python installs are published on PyPI as `proofkit-cli`.
 - The npm wrapper exposes the same `proofkit` command for Node-based teams and delegates to the Python core.
+- Stable Node installs are published on npm as `proofkit`.
 - Packaged installs include the required `.sdd` templates and protocol docs.
 - Source checkouts remain usable through `python scripts/sdd.py`.
 - `proofkit init` does not overwrite existing foundation files.

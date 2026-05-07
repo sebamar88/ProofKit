@@ -106,6 +106,18 @@ What you will see:
 ## Install
 
 ```text
+uv tool install proofkit-cli
+```
+
+Or with `pipx`:
+
+```text
+pipx install proofkit-cli
+```
+
+Or via the Node wrapper:
+
+```text
 npm install -g proofkit
 ```
 
@@ -120,6 +132,22 @@ Or from source (requires Python 3.11+):
 ```text
 uv tool install proofkit-cli --from git+https://github.com/sebamar88/ProofKit.git
 ```
+
+---
+
+## User Guide
+
+Detailed bilingual user guides live in Notion:
+
+- [ProofKit User Guide](https://www.notion.so/ProofKit-User-Guide-3593bc50b138807f9b5dec77aaea32aa?source=copy_link)
+
+The guide includes:
+
+- `Quick Start for Engineers`
+- `Team Workflow Guide`
+- `Production Rollout Guide`
+
+Each guide is split into `EN` and `ES` subpages.
 
 ---
 

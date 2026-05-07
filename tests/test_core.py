@@ -122,10 +122,10 @@ class TestCore(unittest.TestCase):
             findings = sdd.init_project(root)
 
         self.assertEqual(findings, [])
-        self.assertTrue((root / ".sdd" / "constitution.md").is_file())
-        self.assertTrue((root / ".sdd" / "state.json").is_file())
-        self.assertTrue((root / ".sdd" / "evidence").is_dir())
-        self.assertTrue((root / ".sdd" / "adapters" / "generic-markdown.json").is_file())
+        self.assertTrue((root / ".proofkit" / "constitution.md").is_file())
+        self.assertTrue((root / ".proofkit" / "state.json").is_file())
+        self.assertTrue((root / ".proofkit" / "evidence").is_dir())
+        self.assertTrue((root / ".proofkit" / "adapters" / "generic-markdown.json").is_file())
         self.assertEqual(sdd.validate(root), [])
 
     def test_validate_requires_change_id_to_match_change_directory(self) -> None:
@@ -135,7 +135,7 @@ class TestCore(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, "demo-change", "standard", "Demo"), [])
 
-        proposal_path = root / ".sdd" / "changes" / "demo-change" / "proposal.md"
+        proposal_path = root / ".proofkit" / "changes" / "demo-change" / "proposal.md"
         proposal_text = proposal_path.read_text(encoding="utf-8")
         proposal_path.write_text(proposal_text.replace("change_id: demo-change", "change_id: wrong-id"), encoding="utf-8")
 
@@ -150,7 +150,7 @@ class TestCore(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, "demo-change", "standard", "Demo"), [])
 
-        proposal_path = root / ".sdd" / "changes" / "demo-change" / "proposal.md"
+        proposal_path = root / ".proofkit" / "changes" / "demo-change" / "proposal.md"
         proposal_text = proposal_path.read_text(encoding="utf-8")
         proposal_path.write_text(proposal_text.replace("profile: standard\n", ""), encoding="utf-8")
 
@@ -165,7 +165,7 @@ class TestCore(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, "demo-change", "standard", "Demo"), [])
 
-        proposal_path = root / ".sdd" / "changes" / "demo-change" / "proposal.md"
+        proposal_path = root / ".proofkit" / "changes" / "demo-change" / "proposal.md"
         proposal_text = proposal_path.read_text(encoding="utf-8")
         proposal_path.write_text(proposal_text.replace("artifact: proposal", "artifact: design"), encoding="utf-8")
 
@@ -179,7 +179,7 @@ class TestCore(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(sdd.init_project(root), [])
 
-        constitution_path = root / ".sdd" / "constitution.md"
+        constitution_path = root / ".proofkit" / "constitution.md"
         constitution_text = constitution_path.read_text(encoding="utf-8")
         constitution_path.write_text(constitution_text.replace("created: 2026-05-03", "created: 2026-13-40"), encoding="utf-8")
 
@@ -193,7 +193,7 @@ class TestCore(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(sdd.init_project(root), [])
 
-        spec_dir = root / ".sdd" / "specs" / "demo-change"
+        spec_dir = root / ".proofkit" / "specs" / "demo-change"
         spec_dir.mkdir(parents=True)
         spec_path = spec_dir / "spec.md"
         spec_path.write_text(

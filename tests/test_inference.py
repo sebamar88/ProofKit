@@ -49,7 +49,7 @@ class TestInference(unittest.TestCase):
             self.assertEqual(sdd.run_workflow(root, change_id, "standard", "Guard login", create=True).phase, sdd.WorkflowPhase.PROPOSE)
 
         # Advance artifacts to "tasks ready" level so artifact inference would return VERIFY
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         for filename in ["proposal.md", "delta-spec.md", "design.md", "tasks.md"]:
             path = change_dir / filename
             path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
@@ -73,7 +73,7 @@ class TestInference(unittest.TestCase):
             self.assertEqual(sdd.run_workflow(root, change_id, "standard", "Guard login", create=True).phase, sdd.WorkflowPhase.PROPOSE)
 
         # Artifact level: only proposal.md ready — inference should return SPECIFY
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         proposal_path = change_dir / "proposal.md"
         proposal_path.write_text(proposal_path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
 
@@ -98,7 +98,7 @@ class TestInference(unittest.TestCase):
 
         # Record SPECIFY in state.json without the artifacts being ready
         # (do it by manually recording the transition after making proposal "ready")
-        proposal_path = root / ".sdd" / "changes" / change_id / "proposal.md"
+        proposal_path = root / ".proofkit" / "changes" / change_id / "proposal.md"
         proposal_path.write_text(proposal_path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
         self.record_transition(root, change_id, sdd.WorkflowPhase.SPECIFY)
 
@@ -117,7 +117,7 @@ class TestInference(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "quick", "Test change"), [])
-        return root / ".sdd" / "changes" / change_id
+        return root / ".proofkit" / "changes" / change_id
 
     def _fill_proposal(self, change_dir: Path) -> None:
         p = change_dir / "proposal.md"
@@ -211,7 +211,7 @@ class TestInference(unittest.TestCase):
 
         self.assertTrue(result.step.is_complete)
         self.assertGreater(steps, 0)
-        archive_root = root / ".sdd" / "archive"
+        archive_root = root / ".proofkit" / "archive"
         archived = [p for p in archive_root.iterdir() if p.is_dir()]
         self.assertEqual(len(archived), 1)
 

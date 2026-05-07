@@ -32,7 +32,7 @@ class TestExecutionEvidence(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "quick", "Test change"), [])
-        return root / ".sdd" / "changes" / change_id
+        return root / ".proofkit" / "changes" / change_id
 
     def _fill_proposal(self, change_dir: Path) -> None:
         p = change_dir / "proposal.md"

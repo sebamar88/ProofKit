@@ -46,7 +46,7 @@ class TestFeatures(unittest.TestCase):
             sdd.init_project(root)
             findings = sdd.install_commands(root, "generic", "user", _home=tmp_home)
         self.assertEqual(findings, [])
-        commands_dir = tmp_home / ".sdd" / "commands"
+        commands_dir = tmp_home / ".proofkit" / "commands"
         for name in _COMMAND_FILE_NAMES:
             self.assertTrue((commands_dir / name).is_file(), f"missing {name}")
 
@@ -96,7 +96,7 @@ class TestFeatures(unittest.TestCase):
             sdd.init_project(root)
             sdd.install_commands(root, "generic", "repo")
         # Overwrite one file with a custom local scaffold.
-        custom_file = root / ".sdd" / "commands" / "sdd-propose.md"
+        custom_file = root / ".proofkit" / "commands" / "sdd-propose.md"
         custom_file.write_text("# my custom scaffold", encoding="utf-8")
         with contextlib.redirect_stdout(io.StringIO()):
             findings = sdd.install_commands(root, "generic", "repo")
@@ -149,7 +149,7 @@ class TestFeatures(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             findings = sdd.install_extension(root, src)
         self.assertEqual(findings, [])
-        ext_dir = root / ".sdd" / "extensions" / "my-ext"
+        ext_dir = root / ".proofkit" / "extensions" / "my-ext"
         self.assertTrue(ext_dir.is_dir())
         self.assertTrue((ext_dir / "manifest.json").is_file())
 
@@ -173,7 +173,7 @@ class TestFeatures(unittest.TestCase):
         src = self._make_extension_source(root, "my-ext")
         with contextlib.redirect_stdout(io.StringIO()):
             sdd.install_extension(root, src)
-        ext_dir = root / ".sdd" / "extensions" / "my-ext"
+        ext_dir = root / ".proofkit" / "extensions" / "my-ext"
         self.assertTrue(ext_dir.is_dir())
         with contextlib.redirect_stdout(io.StringIO()):
             findings = sdd.remove_extension(root, "my-ext")
@@ -198,7 +198,7 @@ class TestFeatures(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             sdd.install_extension(root, src)
         # Mark TRUSTED.
-        (root / ".sdd" / "extensions" / "hook-ext" / "TRUSTED").write_text("", encoding="utf-8")
+        (root / ".proofkit" / "extensions" / "hook-ext" / "TRUSTED").write_text("", encoding="utf-8")
         findings = sdd.run_extension_hooks(root, "on_verify", change_id="any", findings=[])
         self.assertEqual(len(findings), 1)
         self.assertEqual(findings[0].message, "hook-injected-error")
@@ -250,7 +250,7 @@ class TestFeatures(unittest.TestCase):
         root = REPO_ROOT / ".tmp-tests" / f"mem-init-{uuid.uuid4().hex}"
         with contextlib.redirect_stdout(io.StringIO()):
             sdd.init_project(root)
-        memory_dir = root / ".sdd" / "memory"
+        memory_dir = root / ".proofkit" / "memory"
         self.assertTrue(memory_dir.is_dir())
         self.assertTrue((memory_dir / "project.md").is_file())
         self.assertTrue((memory_dir / "decisions.md").is_file())
@@ -334,7 +334,7 @@ class TestFeatures(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             change_id, findings = sdd.bootstrap_change(root, "Add brownfield support")
         self.assertEqual(findings, [])
-        self.assertTrue((root / ".sdd" / "changes" / change_id).is_dir())
+        self.assertTrue((root / ".proofkit" / "changes" / change_id).is_dir())
 
     def test_bootstrap_change_requires_initialized_root(self) -> None:
         root = REPO_ROOT / ".tmp-tests" / f"boot-uninit-{uuid.uuid4().hex}"
@@ -373,9 +373,9 @@ class TestFeatures(unittest.TestCase):
             change_id, findings = sdd.bootstrap_change(root, "hotfix: crash on startup", profile="auto")
         self.assertEqual(findings, [])
         # change dir should exist
-        self.assertTrue((root / ".sdd" / "changes" / change_id).is_dir())
+        self.assertTrue((root / ".proofkit" / "changes" / change_id).is_dir())
         # quick profile has proposal.md, tasks.md, verification.md
-        artifacts = list((root / ".sdd" / "changes" / change_id).iterdir())
+        artifacts = list((root / ".proofkit" / "changes" / change_id).iterdir())
         self.assertGreater(len(artifacts), 0)
 
     # ── v0.21.0: Multi-agent Runner ───────────────────────────────────────

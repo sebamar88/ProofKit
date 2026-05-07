@@ -65,7 +65,7 @@ class TestWorkflow(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Document example"), [])
 
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         for filename in ["proposal.md", "delta-spec.md", "design.md", "tasks.md", "archive.md"]:
             path = change_dir / filename
             path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
@@ -89,8 +89,8 @@ class TestWorkflow(unittest.TestCase):
             self.assertEqual(sdd.archive_change(root, change_id), [])
 
         self.assertFalse(change_dir.exists())
-        self.assertTrue((root / ".sdd" / "specs" / change_id / "spec.md").is_file())
-        archives = list((root / ".sdd" / "archive").glob(f"*-{change_id}"))
+        self.assertTrue((root / ".proofkit" / "specs" / change_id / "spec.md").is_file())
+        archives = list((root / ".proofkit" / "archive").glob(f"*-{change_id}"))
         self.assertEqual(len(archives), 1)
 
     def test_archive_rejects_verified_change_before_spec_sync(self) -> None:
@@ -101,7 +101,7 @@ class TestWorkflow(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Document example"), [])
 
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         for filename in ["proposal.md", "delta-spec.md", "design.md", "tasks.md", "archive.md"]:
             path = change_dir / filename
             path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
@@ -132,7 +132,7 @@ class TestWorkflow(unittest.TestCase):
         self.assertEqual(state.phase, sdd.WorkflowPhase.PROPOSE)
         self.assertEqual(state.profile, "standard")
         self.assertEqual(state.findings, [])
-        self.assertTrue((root / ".sdd" / "changes" / "guard-login" / "proposal.md").is_file())
+        self.assertTrue((root / ".proofkit" / "changes" / "guard-login" / "proposal.md").is_file())
         self.assertEqual(sdd.declared_workflow_phase(root, "guard-login"), sdd.WorkflowPhase.PROPOSE)
 
     def test_transition_blocks_phase_when_artifacts_do_not_support_it(self) -> None:
@@ -155,7 +155,7 @@ class TestWorkflow(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.run_workflow(root, change_id, "standard", "Guard login", create=True).phase, sdd.WorkflowPhase.PROPOSE)
 
-        proposal_path = root / ".sdd" / "changes" / change_id / "proposal.md"
+        proposal_path = root / ".proofkit" / "changes" / change_id / "proposal.md"
         proposal_path.write_text(proposal_path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
 
         transitioned = sdd.transition_workflow(root, change_id, sdd.WorkflowPhase.SPECIFY)
@@ -170,7 +170,7 @@ class TestWorkflow(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.run_workflow(root, change_id, "standard", "Guard login", create=True).phase, sdd.WorkflowPhase.PROPOSE)
 
-        proposal_path = root / ".sdd" / "changes" / change_id / "proposal.md"
+        proposal_path = root / ".proofkit" / "changes" / change_id / "proposal.md"
         proposal_path.write_text(proposal_path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
 
         findings = sdd.guard_repository(root, require_active_change=True, strict_state=True)
@@ -187,7 +187,7 @@ class TestWorkflow(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
 
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         self.assertEqual(sdd.infer_phase_from_artifacts(root, change_id), sdd.WorkflowPhase.PROPOSE)
 
         for filename in ["proposal.md", "delta-spec.md", "design.md", "tasks.md", "archive.md"]:
@@ -225,7 +225,7 @@ class TestWorkflow(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
 
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         for filename in ["proposal.md", "delta-spec.md", "design.md", "tasks.md"]:
             path = change_dir / filename
             path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
@@ -253,7 +253,7 @@ class TestWorkflow(unittest.TestCase):
             state = sdd.run_workflow(root, "guard-login", "standard", "Guard login", create=False)
 
         self.assertEqual(state.phase, sdd.WorkflowPhase.NOT_STARTED)
-        self.assertFalse((root / ".sdd" / "changes" / "guard-login").exists())
+        self.assertFalse((root / ".proofkit" / "changes" / "guard-login").exists())
 
     def test_public_workflow_orchestrator_is_exported(self) -> None:
         self.assertIs(proofkit.SDDWorkflow, sdd.SDDWorkflow)
@@ -348,7 +348,7 @@ class TestWorkflow(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertTrue(workflow.run(change_id, profile="standard", title="Guard login").ok)
 
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         for filename in ["proposal.md", "delta-spec.md", "design.md", "tasks.md", "archive.md"]:
             path = change_dir / filename
             path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
@@ -420,7 +420,7 @@ class TestWorkflow(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
 
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         for filename in ["proposal.md", "delta-spec.md", "design.md", "tasks.md", "archive.md"]:
             path = change_dir / filename
             path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
@@ -435,7 +435,7 @@ class TestWorkflow(unittest.TestCase):
         verification_text = verification_text.replace("not-run", "pass")
         verification_path.write_text(verification_text, encoding="utf-8")
 
-        archive_dir = root / ".sdd" / "archive" / f"2026-05-05-{change_id}"
+        archive_dir = root / ".proofkit" / "archive" / f"2026-05-05-{change_id}"
         shutil.copytree(change_dir, archive_dir)
         shutil.rmtree(change_dir)
 

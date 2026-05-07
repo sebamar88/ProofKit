@@ -78,7 +78,7 @@ class TestVerify(unittest.TestCase):
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
 
         # Record TASK phase without real evidence so verify_change can be called
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         for filename in ["proposal.md", "delta-spec.md", "design.md", "archive.md"]:
             path = change_dir / filename
             path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
@@ -108,7 +108,7 @@ class TestVerify(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
 
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         for filename in ["proposal.md", "delta-spec.md", "design.md", "archive.md"]:
             path = change_dir / filename
             path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
@@ -142,7 +142,7 @@ class TestVerify(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
 
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         for filename in ["proposal.md", "delta-spec.md", "design.md", "archive.md"]:
             path = change_dir / filename
             path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
@@ -162,7 +162,7 @@ class TestVerify(unittest.TestCase):
         self.assertEqual(findings, [])
         self.assertEqual(sdd.declared_workflow_phase(root, change_id), sdd.WorkflowPhase.VERIFY)
         self.assertEqual(sdd.validate_execution_evidence(root, change_id), [])
-        evidence_path = root / ".sdd" / "evidence" / change_id / "verification.jsonl"
+        evidence_path = root / ".proofkit" / "evidence" / change_id / "verification.jsonl"
         self.assertTrue(evidence_path.is_file())
         records = [json.loads(line) for line in evidence_path.read_text(encoding="utf-8").splitlines()]
         self.assertTrue(records[0]["passed"])
@@ -178,7 +178,7 @@ class TestVerify(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
 
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         for filename in ["proposal.md", "delta-spec.md", "design.md"]:
             path = change_dir / filename
             path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
@@ -207,7 +207,7 @@ class TestVerify(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
 
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         for filename in ["proposal.md", "delta-spec.md", "design.md"]:
             path = change_dir / filename
             path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
@@ -235,7 +235,7 @@ class TestVerify(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
 
-        verification_path = root / ".sdd" / "changes" / change_id / "verification.md"
+        verification_path = root / ".proofkit" / "changes" / change_id / "verification.md"
         # Default template still has the placeholder Commands line
         findings = sdd.validate_verification_evidence(verification_path)
         messages = self.finding_messages(findings)
@@ -257,7 +257,7 @@ class TestVerify(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
 
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         for filename in ["proposal.md", "delta-spec.md", "design.md", "tasks.md", "archive.md"]:
             path = change_dir / filename
             path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
@@ -292,7 +292,7 @@ class TestVerify(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
 
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         for filename in ["proposal.md", "delta-spec.md", "design.md", "archive.md"]:
             path = change_dir / filename
             path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
@@ -329,7 +329,7 @@ class TestVerify(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
 
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         for filename in ["proposal.md", "delta-spec.md", "design.md", "archive.md"]:
             path = change_dir / filename
             path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
@@ -398,7 +398,7 @@ class TestVerify(unittest.TestCase):
         # no phase recorded — no commands allowed
         self.assertEqual(engine.allowed_commands(change_id), [])
 
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         for filename in ["proposal.md", "delta-spec.md", "design.md", "archive.md"]:
             path = change_dir / filename
             path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")
@@ -430,7 +430,7 @@ class TestVerify(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
 
-        verification_path = root / ".sdd" / "changes" / change_id / "verification.md"
+        verification_path = root / ".proofkit" / "changes" / change_id / "verification.md"
         # Replace placeholder text but leave status as a non-passing value
         text = verification_path.read_text(encoding="utf-8")
         text = text.replace("pending verification evidence", "unit test evidence")
@@ -450,7 +450,7 @@ class TestVerify(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
 
-        verification_path = root / ".sdd" / "changes" / change_id / "verification.md"
+        verification_path = root / ".proofkit" / "changes" / change_id / "verification.md"
         text = verification_path.read_text(encoding="utf-8")
         text = text.replace("pending verification evidence", "unit test evidence")
         text = text.replace("not-run", "pass")
@@ -471,7 +471,7 @@ class TestVerify(unittest.TestCase):
             self.assertEqual(sdd.init_project(root), [])
             self.assertEqual(sdd.create_change(root, change_id, "standard", "Guard login"), [])
 
-        change_dir = root / ".sdd" / "changes" / change_id
+        change_dir = root / ".proofkit" / "changes" / change_id
         for filename in ["proposal.md", "delta-spec.md", "design.md", "tasks.md", "archive.md"]:
             path = change_dir / filename
             path.write_text(path.read_text(encoding="utf-8").replace("status: draft", "status: ready"), encoding="utf-8")

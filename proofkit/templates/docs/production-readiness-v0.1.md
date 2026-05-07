@@ -58,6 +58,7 @@ CI should run the same command on Windows, macOS, and Linux before release.
 ## npm Publishing
 
 The repository includes a `Publish npm` workflow for publishing the npm wrapper package.
+The repository also includes a `Publish PyPI` workflow for publishing the Python package to PyPI.
 
 Required GitHub secret:
 
@@ -65,7 +66,16 @@ Required GitHub secret:
 NPM_REPOSITORY_TOKEN
 ```
 
-The workflow runs `python scripts/release_check.py` before `npm publish --provenance`, and only publishes on manual `workflow_dispatch` or `v*` tags. For tag releases, the tag must match the package version, for example `v0.1.0`.
+The npm workflow runs `python scripts/release_check.py` before `npm publish --provenance`, and only publishes on manual `workflow_dispatch` or `v*` tags. For tag releases, the tag must match the package version, for example `v0.1.0`.
+
+The PyPI workflow runs `python scripts/release_check.py`, builds distributions with `python -m build`, and publishes through PyPI Trusted Publishing on manual `workflow_dispatch` or GitHub `release.published`.
+
+Configure the PyPI project `proofkit-cli` with a GitHub Actions trusted publisher using:
+
+- Repository owner: `sebamar88`
+- Repository name: `ProofKit`
+- Workflow file: `.github/workflows/pypi-publish.yml`
+- Environment: `pypi`
 
 ## Compatibility Policy
 

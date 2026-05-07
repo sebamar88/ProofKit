@@ -54,7 +54,7 @@ class TestCore(unittest.TestCase):
         self.assertTrue(template_root.joinpath("sdd", "adapters", "opencode.json").is_file())
         self.assertTrue(template_root.joinpath("sdd", "adapters", "qwen-code.json").is_file())
         self.assertTrue(template_root.joinpath("docs", "adapters-v0.1.md").is_file())
-        self.assertTrue(template_root.joinpath("docs", "sdd-core-protocol-v0.1.md").is_file())
+        self.assertTrue(template_root.joinpath("docs", "proofkit-protocol-v0.1.md").is_file())
 
     def test_standard_profile_artifacts_are_defined(self) -> None:
         self.assertEqual(

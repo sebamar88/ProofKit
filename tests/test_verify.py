@@ -282,7 +282,7 @@ class TestVerify(unittest.TestCase):
         findings = sdd.archive_change(root, change_id)
         self.assertEqual(len(findings), 1)
         self.assertIn("artifact checksum is stale", findings[0].message)
-        self.assertIn("ssd-core transition", findings[0].message)
+        self.assertIn("proofkit transition", findings[0].message)
 
     def test_verify_does_not_block_when_verification_md_edited_after_task(self) -> None:
         root = REPO_ROOT / ".tmp-tests" / f"verify-expects-edit-{uuid.uuid4().hex}"

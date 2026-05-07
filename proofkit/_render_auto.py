@@ -46,7 +46,7 @@ def run_fast_demo() -> int:
     with tempfile.TemporaryDirectory(prefix="sdd-fast-") as tmpdir:
         root = Path(tmpdir)
 
-        print(_bold("SDD-Core — Proof: agent can't lie about being done"))
+        print(_bold("ProofKit — Proof: agent can't lie about being done"))
         print(_dim("=" * 54))
         print("")
         print("Scenario: an AI agent finishes coding and calls 'ssd-core archive'.")

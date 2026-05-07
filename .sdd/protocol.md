@@ -12,6 +12,6 @@ This project uses SDD-Core Protocol v0.1.
 
 Canonical explanatory spec:
 
-- `docs/sdd-core-protocol-v0.1.md`
+- `docs/proofkit-protocol-v0.1.md`
 
 Operational artifacts in `.sdd/` follow that protocol. Keep this file short to avoid duplicating the canonical protocol text.

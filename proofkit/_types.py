@@ -179,7 +179,7 @@ FOUNDATION_DOC_FILES = [
     "adapter-authoring-v0.1.md",
     "adapters-v0.1.md",
     "production-readiness-v0.1.md",
-    "sdd-core-protocol-v0.1.md",
+    "proofkit-protocol-v0.1.md",
     "sdd-validator-v0.1.md",
 ]
 

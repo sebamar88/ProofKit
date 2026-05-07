@@ -301,7 +301,7 @@ class TestWorkflow(unittest.TestCase):
 
         blocked = sdd.transition_workflow(root, change_id, sdd.WorkflowPhase.VERIFY)
         self.assertTrue(blocked.is_blocked)
-        self.assertTrue(any("ssd-core verify" in f.message for f in blocked.findings))
+        self.assertTrue(any("proofkit verify" in f.message for f in blocked.findings))
         # The dedicated verify command must also be unavailable before TASK is recorded
         findings = sdd.verify_change(root, change_id)
         self.assertEqual(len(findings), 1)
@@ -310,7 +310,7 @@ class TestWorkflow(unittest.TestCase):
     def test_transition_blocks_archived_phase(self) -> None:
         blocked = sdd.transition_workflow(REPO_ROOT, "any-change", sdd.WorkflowPhase.ARCHIVED)
         self.assertTrue(blocked.is_blocked)
-        self.assertTrue(any("ssd-core archive" in f.message for f in blocked.findings))
+        self.assertTrue(any("proofkit archive" in f.message for f in blocked.findings))
 
     def test_log_shows_history_after_transitions(self) -> None:
         root = REPO_ROOT / ".tmp-tests" / f"log-{uuid.uuid4().hex}"
@@ -455,14 +455,14 @@ class TestWorkflow(unittest.TestCase):
         pre_commit = root / ".git" / "hooks" / "pre-commit"
         self.assertTrue(pre_commit.is_file())
         commit_text = pre_commit.read_text(encoding="utf-8")
-        self.assertIn("ssd-core guard", commit_text)
+        self.assertIn("proofkit guard", commit_text)
         self.assertIn("--require-active-change", commit_text)
         self.assertIn("--strict-state", commit_text)
 
         pre_push = root / ".git" / "hooks" / "pre-push"
         self.assertTrue(pre_push.is_file())
         push_text = pre_push.read_text(encoding="utf-8")
-        self.assertIn("ssd-core guard", push_text)
+        self.assertIn("proofkit guard", push_text)
         self.assertIn("--strict-state", push_text)
         self.assertNotIn("--require-active-change", push_text)
 

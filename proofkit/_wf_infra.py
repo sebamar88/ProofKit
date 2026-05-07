@@ -93,7 +93,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install SDD-Core
+      - name: Install ProofKit
         run: pip install ssd-core
 
       - name: SDD governance guard

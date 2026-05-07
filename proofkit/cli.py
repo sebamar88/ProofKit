@@ -24,7 +24,7 @@ from ._workflow import _CI_TEMPLATES  # noqa: F401
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="SDD-Core utility")
+    parser = argparse.ArgumentParser(description="ProofKit utility")
     parser.add_argument(
         "--trace",
         action="store_true",
@@ -33,14 +33,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
 
-    validate_parser = subcommands.add_parser("validate", help="validate SDD-Core repository artifacts")
+    validate_parser = subcommands.add_parser("validate", help="validate ProofKit repository artifacts")
     validate_parser.add_argument(
         "--root",
         default=".",
         help="repository root to validate; defaults to the current directory",
     )
 
-    subcommands.add_parser("version", help="show SSD-Core version")
+    subcommands.add_parser("version", help="show ProofKit version")
 
     demo_parser = subcommands.add_parser(
         "demo",
@@ -75,21 +75,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    init_parser = subcommands.add_parser("init", help="initialize SDD-Core artifacts in a repository")
+    init_parser = subcommands.add_parser("init", help="initialize ProofKit artifacts in a repository")
     init_parser.add_argument(
         "--root",
         default=".",
         help="repository root; defaults to the current directory",
     )
 
-    status_parser = subcommands.add_parser("status", help="show SDD-Core repository status")
+    status_parser = subcommands.add_parser("status", help="show ProofKit repository status")
     status_parser.add_argument(
         "--root",
         default=".",
         help="repository root; defaults to the current directory",
     )
 
-    check_parser = subcommands.add_parser("check", help="check whether an SDD-Core change is ready to archive")
+    check_parser = subcommands.add_parser("check", help="check whether a ProofKit change is ready to archive")
     check_parser.add_argument("change_id", help="kebab-case change identifier")
     check_parser.add_argument(
         "--root",
@@ -97,7 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    archive_parser = subcommands.add_parser("archive", help="archive a verified SDD-Core change")
+    archive_parser = subcommands.add_parser("archive", help="archive a verified ProofKit change")
     archive_parser.add_argument("change_id", help="kebab-case change identifier")
     archive_parser.add_argument(
         "--root",
@@ -113,7 +113,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    new_parser = subcommands.add_parser("new", help="create a new SDD-Core change artifact set")
+    new_parser = subcommands.add_parser("new", help="create a new ProofKit change artifact set")
     new_parser.add_argument("change_id", help="kebab-case change identifier")
     new_parser.add_argument(
         "--profile",
@@ -131,7 +131,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    run_parser = subcommands.add_parser("run", help="run the SDD-Core workflow gate for a change")
+    run_parser = subcommands.add_parser("run", help="run the ProofKit workflow gate for a change"))
     run_parser.add_argument("change_id", help="kebab-case change identifier")
     run_parser.add_argument(
         "--profile",
@@ -168,7 +168,7 @@ def build_parser() -> argparse.ArgumentParser:
             WorkflowPhase.SYNC_SPECS.value,
             WorkflowPhase.ARCHIVE.value,
         ],
-        help="target phase to record after artifacts prove readiness; use 'ssd-core verify' to record the verify phase",
+        help="target phase to record after artifacts prove readiness; use 'proofkit verify' to record the verify phase",
     )
     transition_parser.add_argument(
         "--root",
@@ -250,7 +250,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    guard_parser = subcommands.add_parser("guard", help="enforce SSD-Core repository governance for hooks or CI")
+    guard_parser = subcommands.add_parser("guard", help="enforce ProofKit repository governance for hooks or CI")
     guard_parser.add_argument(
         "--require-active-change",
         action="store_true",
@@ -272,14 +272,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    hooks_parser = subcommands.add_parser("install-hooks", help="install SSD-Core git enforcement hooks")
+    hooks_parser = subcommands.add_parser("install-hooks", help="install ProofKit git enforcement hooks")
     hooks_parser.add_argument(
         "--root",
         default=".",
         help="repository root; defaults to the current directory",
     )
 
-    ext_parser = subcommands.add_parser("extension", help="manage SDD-Core extensions")
+    ext_parser = subcommands.add_parser("extension", help="manage ProofKit extensions"))
     ext_sub = ext_parser.add_subparsers(dest="ext_action", required=True)
 
     ext_install = ext_sub.add_parser("install", help="install an extension from a local directory")
@@ -329,7 +329,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     cmd_parser = subcommands.add_parser(
         "install-commands",
-        help="install SDD-Core AI command scaffolds for a supported agent integration",
+        help="install ProofKit AI command scaffolds for a supported agent integration",
     )
     cmd_parser.add_argument(
         "--integration",
@@ -358,7 +358,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     ci_parser = subcommands.add_parser(
         "ci-template",
-        help="write a CI workflow template that runs `ssd-core guard` on every push",
+        help="write a CI workflow template that runs `proofkit guard` on every push",
     )
     ci_parser.add_argument(
         "--type",
@@ -388,7 +388,7 @@ def main(argv: list[str] | None = None) -> int:
         return print_findings(root, validate(root))
 
     if args.command == "version":
-        print(f"SSD-Core {VERSION}")
+        print(f"ProofKit {VERSION}")
         return 0
 
     if args.command == "demo":

@@ -190,7 +190,7 @@ class TestExecutionEvidence(unittest.TestCase):
     def test_require_command_flag_blocks_verify_when_no_commands_given(self) -> None:
         """When CI policy sets require_command=True, passing zero commands must block.
 
-        This is the enforcement path of `ssd-core verify --require-command`:
+        This is the enforcement path of `proofkit verify --require-command`:
         an agent cannot skip execution evidence simply by omitting --command.
         """
         root = REPO_ROOT / ".tmp-tests" / f"lie-nocommand-{uuid.uuid4().hex}"

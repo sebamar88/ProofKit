@@ -1,4 +1,4 @@
-"""ssd_core._extensions — Extension system for SDD-Core.
+"""proofkit._extensions — Extension system for ProofKit.
 
 Third-party extensions can add profiles, agents, skills, and command scaffolds
 without forking the core package.  They may also ship a ``hooks.py`` that

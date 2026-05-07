@@ -1,22 +1,22 @@
 {
-  "name": "ssd-core",
-  "version": "0.23.0",
+  "name": "proofkit-cli",
+  "version": "0.24.0",
   "description": "AI development governance engine — prevent hallucinated completion and vanishing intent in agent-assisted software teams.",
   "license": "MIT",
-  "homepage": "https://github.com/sebamar88/sdd-core#readme",
+  "homepage": "https://github.com/sebamar88/proofkit#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sebamar88/sdd-core.git"
+    "url": "git+https://github.com/sebamar88/proofkit.git"
   },
   "bugs": {
-    "url": "https://github.com/sebamar88/sdd-core/issues"
+    "url": "https://github.com/sebamar88/proofkit/issues"
   },
   "bin": {
-    "ssd-core": "bin/ssd-core.js"
+    "proofkit": "bin/proofkit.js"
   },
   "files": [
     "bin/",
-    "ssd_core/",
+    "proofkit/",
     "scripts/sdd.py",
     "README.md",
     "LICENSE",

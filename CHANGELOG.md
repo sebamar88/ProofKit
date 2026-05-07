@@ -1,13 +1,33 @@
 # Changelog
 
+## 0.24.0 - 2026-05-06
+
+**Rebranding: SDD-Core → ProofKit**
+
+### Breaking changes
+
+- Package renamed from `ssd-core` / `ssd_core` to `proofkit-cli` / `proofkit`.
+- Python imports must be updated: `from proofkit import ...` (was `from ssd_core import ...`).
+- CLI command renamed: `proofkit` (was `ssd-core`).
+- Module directory renamed: `proofkit/` (was `ssd_core/`).
+- Protocol doc renamed: `docs/proofkit-protocol-v0.1.md` (was `docs/sdd-core-protocol-v0.1.md`).
+
+### Install
+
+```text
+uv tool install proofkit-cli --from git+https://github.com/sebamar88/ProofKit.git
+```
+
+---
+
 ## 0.23.0 - 2026-05-07
 
 **Trace mode + contract tests (133 tests pass, 1 skipped)**
 
 ### `--trace` debug mode
 
-- New top-level flag `sdd-core --trace <command>` emits component-level flow to stderr.
-- Trace infrastructure added to `ssd_core/_types.py`: `enable_trace()`, `trace(component, message)`.
+- New top-level flag `proofkit --trace <command>` emits component-level flow to stderr.
+- Trace infrastructure added to `proofkit/_types.py`: `enable_trace()`, `trace(component, message)`.
 - Trace calls added to five workflow sub-modules:
   - `ENGINE` — `guard_repository`, `_auto_advance`, `WorkflowEngine.guard`, `WorkflowEngine.execute`
   - `VALIDATION` — `validate`
@@ -78,7 +98,7 @@ New `_dispatch.py` module with a pluggable agent dispatcher interface.
 - **`DispatchResult`** — frozen dataclass: `exit_code`, `stdout`, `stderr`, `elapsed_seconds`, `.success` property.
 - **`ShellAgentDispatcher`** — runs any prompt as a shell command via `subprocess.run(shell=True)`. Handles timeouts and OS errors, returning a failed `DispatchResult` rather than raising.
 - **`ClaudeCodeDispatcher`** — runs the `claude` CLI with `--print` for non-interactive automation. Returns exit_code=127 with a clear error message when `claude` is not on `PATH`.
-- All four symbols re-exported from `ssd_core` public API and `ssd_core.cli`.
+- All four symbols re-exported from `proofkit` public API and `proofkit.cli`.
 
 ## 0.20.0 - 2026-05-06
 
@@ -104,7 +124,7 @@ New `discover_repository()` and `bootstrap_change()` API for onboarding existing
 
 **Persistent Project Memory (106 tests pass)**
 
-New `ssd-core memory show|add` subcommand and `append_memory` / `read_memory_entry` API.
+New `proofkit memory show|add` subcommand and `append_memory` / `read_memory_entry` API.
 
 - **`init_project()`** — now copies `memory/project.md` and `memory/decisions.md` templates into `.sdd/memory/` on first init.
 - **`read_memory_entry(root, key)`** — reads `.sdd/memory/<key>.md` and returns its text (or `None`).
@@ -119,7 +139,7 @@ New `ssd-core memory show|add` subcommand and `append_memory` / `read_memory_ent
 
 **Extension System (100 tests pass)**
 
-New `ssd-core extension install|list|remove` subcommand plus a Python lifecycle hook system.
+New `proofkit extension install|list|remove` subcommand plus a Python lifecycle hook system.
 
 - **`install_extension(root, path)`** — copies an extension source directory into `.sdd/extensions/<name>/`. Validates `manifest.json` against `sdd.extension.v1` schema before installing. Warns if the extension ships `hooks.py` without a `TRUSTED` marker.
 - **`remove_extension(root, name)`** — deletes the installed extension directory; returns an error Finding if not installed.
@@ -130,14 +150,14 @@ New `ssd-core extension install|list|remove` subcommand plus a Python lifecycle 
 - **`on_guard` hook** — called at the end of `guard_repository()`; can append Findings.
 - **New schema** — `extension.schema.json` added to `.sdd/schemas/` (required by `validate()`).
 - **New directory** — `.sdd/extensions/` added to `REQUIRED_DIRECTORIES` and `EMPTY_STATE_DIRECTORIES`; created by `init_project()`.
-- **CLI** — `ssd-core extension install <path>`, `ssd-core extension list`, `ssd-core extension remove <name>`.
-- **Public API** — `Extension`, `load_extensions`, `install_extension`, `remove_extension`, `run_extension_hooks`, `print_extension_list` exported from `ssd_core`.
+- **CLI** — `proofkit extension install <path>`, `proofkit extension list`, `proofkit extension remove <name>`.
+- **Public API** — `Extension`, `load_extensions`, `install_extension`, `remove_extension`, `run_extension_hooks`, `print_extension_list` exported from `proofkit`.
 
 ## 0.16.0 - 2026-05-06
 
 **`install-commands` — AI command scaffolds with scope control (92 tests pass)**
 
-New subcommand `ssd-core install-commands --integration <agent> [--scope repo|user|local]`
+New subcommand `proofkit install-commands --integration <agent> [--scope repo|user|local]`
 installs six conversational scaffold files into the agent-native command directory.
 
 - **Three installation scopes:**
@@ -157,15 +177,15 @@ installs six conversational scaffold files into the agent-native command directo
 - **`.gitignore` deduplication for `local` scope:** entry is written only once regardless of how many times the command is re-run.
 
 - **New public API:** `install_commands()`, `list_available_integrations()`,
-  `template_commands_root()`, `COMMAND_SCOPES` exported from `ssd_core`.
+  `template_commands_root()`, `COMMAND_SCOPES` exported from `proofkit`.
 
 ## 0.15.0 - 2026-05-06
 
 
 Code review fixes — 8 issues found, all resolved (83 tests pass):
 
-- **Critical: `NameError` on `ssd-core evidence`** — `hashlib` was not imported in `_render.py`. `print_evidence()` would crash with `NameError: name 'hashlib' is not defined` whenever a valid log file was present. Added `import hashlib` to `_render.py`.
-- **Critical: `NameError` on `ssd-core transition` (success path)** — `workflow_registry_path` was missing from the `from ._workflow import (...)` block in `_render.py`. `print_transition()` crashed on the success path. Added `workflow_registry_path` to the import block.
+- **Critical: `NameError` on `proofkit evidence`** — `hashlib` was not imported in `_render.py`. `print_evidence()` would crash with `NameError: name 'hashlib' is not defined` whenever a valid log file was present. Added `import hashlib` to `_render.py`.
+- **Critical: `NameError` on `proofkit transition` (success path)** — `workflow_registry_path` was missing from the `from ._workflow import (...)` block in `_render.py`. `print_transition()` crashed on the success path. Added `workflow_registry_path` to the import block.
 - **Bug: `_pyproject_has_pytest` false-positive** — `[tool.setuptools]` in `pyproject.toml` was incorrectly treated as signal for pytest. A project using setuptools without pytest would trigger `python -m pytest` discovery even if pytest was not installed. Removed the `[tool.setuptools]` check.
 - **Warning: overbroad `str.replace("not-run", "pass")`** — `append_execution_evidence_to_verification()` replaced every occurrence of `"not-run"` in the document, including user prose that happened to contain that term. Replaced with `re.sub(r"(\|\s*)not-run(\s*\|)", ...)` so only table cell values are substituted.
 - **Minor: duplicate code block in `_auto_advance`** — the `if target == SYNC_SPECS or target == ARCHIVE:` branch and its `else` were identical Python code. Collapsed into a single block with a clarifying comment.
@@ -190,7 +210,7 @@ Golden path end-to-end test + evidence edge-case coverage (82 tests total):
 
 Anti-hallucination lie detection tests — three narrative tests that prove the system's core guarantee (80 tests total):
 
-- **`test_require_command_flag_blocks_verify_when_no_commands_given`**: asserts that `verify_change(..., require_command=True)` with an empty command list returns an error and leaves the change at TASK. This is the enforcement path for CI policy (`ssd-core verify --require-command`): an agent cannot skip execution evidence by simply omitting `--command`.
+- **`test_require_command_flag_blocks_verify_when_no_commands_given`**: asserts that `verify_change(..., require_command=True)` with an empty command list returns an error and leaves the change at TASK. This is the enforcement path for CI policy (`proofkit verify --require-command`): an agent cannot skip execution evidence by simply omitting `--command`.
 - **`test_guard_require_evidence_catches_verify_without_command`**: the core anti-hallucination test. Agent manually writes a legitimate-looking `verification.md` (correct status, no placeholders, passing matrix row) and calls `verify_change` without any commands — which succeeds, as manual evidence is accepted. Then `guard --require-execution-evidence` blocks with an evidence error. This is the "I ran the tests" lie caught by governance: the claim has no cryptographic proof.
 - **`test_partial_command_failure_blocks_verify_but_records_all_evidence`**: when multiple commands are given, ALL are executed and ALL are recorded in the evidence log — governance does not stop at the first pass. A single failure blocks verify. Asserts that both passing and failing records exist in the JSONL, with correct `passed` and `exit_code` values. This prevents the lie: "the first test passed so the change is verified" while a later, critical test was silently failing.
 
@@ -211,29 +231,29 @@ These tests are black-box behavioral assertions — they drive the public API (`
 
 ## 0.9.0 - 2026-05-05
 
-- Split monolithic `ssd_core/cli.py` (3845 lines) into four focused modules with a clean dependency chain:
-  - `ssd_core/_types.py` (~360 lines): `VERSION`, color helpers, all constants, enums, and dataclasses. Zero internal dependencies.
-  - `ssd_core/_workflow.py` (~2300 lines): file I/O, frontmatter, validation, change management, state machine, `WorkflowEngine`, `SDDWorkflow`, and `_auto_advance`. Imports only from `_types`.
-  - `ssd_core/_render.py` (~880 lines): all `print_*` functions, `_print_auto_step`, `print_auto`, CI templates, `run_demo`, `run_fast_demo`. Imports from `_types` and `_workflow`.
-  - `ssd_core/cli.py` (~430 lines): `build_parser` and `main` only. Re-exports the full public surface via star imports so `__init__.py` and all downstream consumers are unaffected.
-- Public Python API (`ssd_core/__init__.py`) is unchanged — all imports from `ssd_core` continue to work without modification.
+- Split monolithic `proofkit/cli.py` (3845 lines) into four focused modules with a clean dependency chain:
+  - `proofkit/_types.py` (~360 lines): `VERSION`, color helpers, all constants, enums, and dataclasses. Zero internal dependencies.
+  - `proofkit/_workflow.py` (~2300 lines): file I/O, frontmatter, validation, change management, state machine, `WorkflowEngine`, `SDDWorkflow`, and `_auto_advance`. Imports only from `_types`.
+  - `proofkit/_render.py` (~880 lines): all `print_*` functions, `_print_auto_step`, `print_auto`, CI templates, `run_demo`, `run_fast_demo`. Imports from `_types` and `_workflow`.
+  - `proofkit/cli.py` (~430 lines): `build_parser` and `main` only. Re-exports the full public surface via star imports so `__init__.py` and all downstream consumers are unaffected.
+- Public Python API (`proofkit/__init__.py`) is unchanged — all imports from `proofkit` continue to work without modification.
 - All 65 tests pass unchanged. No behavioral changes.
 
 ## 0.8.0 - 2026-05-06
 
-- Added `ssd-core evidence <change_id>`: displays all recorded execution evidence — command, exit code, duration, timestamp, output log path, and SHA-256 checksum integrity status. Lets humans and CI systems inspect exactly what ran before a change was marked verified.
-- Added `ssd-core pr-check <change_id>`: outputs a Markdown governance report ready to paste into a GitHub/GitLab PR description. Shows phase, profile, evidence summary with a hash chain, and exits 0 only when the change is safe to merge. Exits 1 if the change is missing passing evidence.
-- Added `ssd-core auto --verify-with <cmd>` flag: when `--loop` reaches the verify phase, runs the supplied command automatically instead of pausing for human input. Enables a fully unattended lifecycle: `ssd-core auto my-fix --loop --verify-with 'pytest -x'`. May be repeated for multiple commands.
-- Added `ssd-core verify --commands-file <path>`: reads verification commands from a plain text file, one per line. Blank lines and lines starting with `#` are ignored. Composes with repeated `--command` flags.
-- Added `ssd-core demo --fast`: 30-second anti-hallucination proof. Creates a change in a temp directory, simulates an agent claiming completion three times, shows each governance block with the exact reason, then closes the change with real evidence. Designed as a CI-friendly "wow in 30 seconds" demo.
-- Added visual phase pipeline to `ssd-core phase` output: a horizontal `○ propose → ◎ task → ◉ verify → ○ archive` line shows where the change sits in the lifecycle at a glance.
+- Added `proofkit evidence <change_id>`: displays all recorded execution evidence — command, exit code, duration, timestamp, output log path, and SHA-256 checksum integrity status. Lets humans and CI systems inspect exactly what ran before a change was marked verified.
+- Added `proofkit pr-check <change_id>`: outputs a Markdown governance report ready to paste into a GitHub/GitLab PR description. Shows phase, profile, evidence summary with a hash chain, and exits 0 only when the change is safe to merge. Exits 1 if the change is missing passing evidence.
+- Added `proofkit auto --verify-with <cmd>` flag: when `--loop` reaches the verify phase, runs the supplied command automatically instead of pausing for human input. Enables a fully unattended lifecycle: `proofkit auto my-fix --loop --verify-with 'pytest -x'`. May be repeated for multiple commands.
+- Added `proofkit verify --commands-file <path>`: reads verification commands from a plain text file, one per line. Blank lines and lines starting with `#` are ignored. Composes with repeated `--command` flags.
+- Added `proofkit demo --fast`: 30-second anti-hallucination proof. Creates a change in a temp directory, simulates an agent claiming completion three times, shows each governance block with the exact reason, then closes the change with real evidence. Designed as a CI-friendly "wow in 30 seconds" demo.
+- Added visual phase pipeline to `proofkit phase` output: a horizontal `○ propose → ◎ task → ◉ verify → ○ archive` line shows where the change sits in the lifecycle at a glance.
 - Added `print_evidence` and `print_pr_check` to the public Python API.
 - Bumped `print_auto` public signature: new `verify_commands: list[str] | None` keyword argument mirrors the `--verify-with` CLI flag.
 
 ## 0.7.0 - 2026-05-05
 
-- Added `ssd-core verify --discover`: auto-detects the project's test runner (pytest, npm test, cargo test, go test, make test) and runs it as the verification command. The discovered command is shown in `ssd-core auto` guidance when the workflow reaches the verify phase.
-- Added `ssd-core ci-template`: writes a plug-and-play CI workflow file under the repository root. Supports `--type github-actions` (default, writes `.github/workflows/sdd-guard.yml`) and `--type gitlab-ci` (writes `.gitlab-ci-sdd.yml`). Fails if the file already exists.
+- Added `proofkit verify --discover`: auto-detects the project's test runner (pytest, npm test, cargo test, go test, make test) and runs it as the verification command. The discovered command is shown in `proofkit auto` guidance when the workflow reaches the verify phase.
+- Added `proofkit ci-template`: writes a plug-and-play CI workflow file under the repository root. Supports `--type github-actions` (default, writes `.github/workflows/sdd-guard.yml`) and `--type gitlab-ci` (writes `.gitlab-ci-sdd.yml`). Fails if the file already exists.
 - Added `write_ci_template` and `discover_test_command` to the public Python API.
 - Added execution timing to evidence records: `run_verification_command` now captures `duration_seconds` in each `sdd.execution-evidence.v1` record and includes it in the log header (`duration: 0.123s`). The evidence line in `verification.md` now includes the duration and shows a 12-char SHA-256 prefix for the output checksum.
 - Added ANSI color and icon output across all CLI commands. Colors are gated by `sys.stdout.isatty()`, `NO_COLOR`, and `TERM=dumb` so CI output stays clean. Key additions: phase icons (`○ ◎ ◉ ✔ ✗ ⟳`) on every phase line, green/yellow/red severity on findings, bold command names and change IDs in success messages.
@@ -243,27 +263,27 @@ These tests are black-box behavioral assertions — they drive the public API (`
 
 ## 0.6.0 - 2026-05-05
 
-- Added `--loop` flag to `ssd-core auto`: drains all auto-executable steps in sequence, stopping at the first phase that requires human input, at completion, or on a blocking finding. No file watchers, no polling, no new dependencies.
+- Added `--loop` flag to `proofkit auto`: drains all auto-executable steps in sequence, stopping at the first phase that requires human input, at completion, or on a blocking finding. No file watchers, no polling, no new dependencies.
 - Extracted `_print_auto_step()` internal helper to share rendering logic between single-step and loop modes.
-- Rewrote `ssd-core demo` to showcase the `auto --loop` narrative: engine pauses visibly at proposal and task phases (human-work gates), drives through transitions automatically, and closes the change with checksummed evidence. Removes the old manual step-by-step walkthrough.
+- Rewrote `proofkit demo` to showcase the `auto --loop` narrative: engine pauses visibly at proposal and task phases (human-work gates), drives through transitions automatically, and closes the change with checksummed evidence. Removes the old manual step-by-step walkthrough.
 
 ## 0.5.0 - 2026-05-05
 
-- Added `ssd-core auto <change>` command: advisor + executor in one call. Executes transitions, `sync-specs`, and `archive` automatically when artifacts are ready. For human-work phases (proposal, tasks, verification, etc.) prints the exact file path to edit and blocks until re-run. Exit 0 always unless the workflow is blocked.
-- Added `WorkflowEngine.execute_next(change_id)` returning `AutoStep`: the programmatic equivalent of `ssd-core auto`, designed for agent-driven loops. Returns `needs_human_work=True` when a file edit is required before the engine can advance further.
+- Added `proofkit auto <change>` command: advisor + executor in one call. Executes transitions, `sync-specs`, and `archive` automatically when artifacts are ready. For human-work phases (proposal, tasks, verification, etc.) prints the exact file path to edit and blocks until re-run. Exit 0 always unless the workflow is blocked.
+- Added `WorkflowEngine.execute_next(change_id)` returning `AutoStep`: the programmatic equivalent of `proofkit auto`, designed for agent-driven loops. Returns `needs_human_work=True` when a file edit is required before the engine can advance further.
 - Added `AutoStep` frozen dataclass: `executed_command`, `step` (EngineStep), `is_blocked`, `is_complete`, `needs_human_work`.
 - Added `_PHASE_ARTIFACT_FILE` mapping every human-work phase to its canonical artifact filename.
-- Added `_auto_advance()` internal function: single-step advance logic shared by `WorkflowEngine.execute_next()` and `ssd-core auto`.
-- Exported `AutoStep` from the `ssd_core` package public API.
+- Added `_auto_advance()` internal function: single-step advance logic shared by `WorkflowEngine.execute_next()` and `proofkit auto`.
+- Exported `AutoStep` from the `proofkit` package public API.
 - Updated package description to: "AI development governance engine — prevent hallucinated completion and vanishing intent in agent-assisted software teams."
 
 ## 0.4.0 - 2026-05-05
 
-- Added `ssd-core demo` command: annotated Golden Path walkthrough in a temporary directory. Runs the full `init → new → task → verify → archive` cycle with real SDD-Core logic, checksummed evidence, and automatic cleanup. Exit 0 on success, 1 on first failure.
+- Added `proofkit demo` command: annotated Golden Path walkthrough in a temporary directory. Runs the full `init → new → task → verify → archive` cycle with real ProofKit logic, checksummed evidence, and automatic cleanup. Exit 0 on success, 1 on first failure.
 - Added `EngineStep` frozen dataclass as the structured return type for agent-driven execution loops: `phase`, `next_action`, `suggested_command`, `allowed_commands`, `blocking_findings`, `is_blocked`, `is_complete`.
 - Added `WorkflowEngine.next_step(change_id)` returning `EngineStep` — a single call that gives agent integrations and IDE tools all the context needed to advance the workflow without additional lookups.
 - Added `_suggested_command()` internal helper that maps every `WorkflowPhase` to the canonical CLI command that advances past it.
-- Exported `EngineStep` from the `ssd_core` package public API.
+- Exported `EngineStep` from the `proofkit` package public API.
 - Rewrote README: new structure (What / Why / Try It Now / Golden Path / Orchestrator API / WorkflowEngine loop / Hard Enforcement / When To Use / Reference). Opening line repositioned from "anti-hallucination" to "governance layer for AI-driven development".
 
 ## 0.3.0 - 2026-05-05
@@ -272,7 +292,7 @@ These tests are black-box behavioral assertions — they drive the public API (`
 - Added `COMMAND_GATES` as the single command-to-phase policy map for `verify`, `sync-specs`, and `archive`.
 - Made `workflow_state()` prefer declared `.sdd/state.json` phase while keeping artifact-only inference available through `infer_phase_from_artifacts()` and `infer_state_from_artifacts()`.
 - Added semantic verification matrix validation so `verification.md` must contain a passing row before closure.
-- Added executable verification evidence through `ssd-core verify --command`, including stdout/stderr logs, exit codes, and output checksums under `.sdd/evidence/`.
+- Added executable verification evidence through `proofkit verify --command`, including stdout/stderr logs, exit codes, and output checksums under `.sdd/evidence/`.
 - Added `WorkflowEngine.execute()` and `SDDWorkflow.verify()` so the engine can run gated workflow actions, not only validate whether they are allowed.
 - Added `guard --require-execution-evidence` for repositories that want verified or archived changes to require passing execution records.
 - Restricted the `verify` phase to the dedicated verify command so `transition verify` can no longer reconcile manual edits into a verified state.
@@ -286,31 +306,31 @@ These tests are black-box behavioral assertions — they drive the public API (`
 
 ## 0.1.9 - 2026-05-05
 
-- Blocked direct transition into `verify`; the `verify` phase must go through the dedicated `ssd-core verify` command.
-- Blocked direct transition into `archived`; archive must go through `ssd-core archive`.
-- Added `ssd-core log` to inspect recorded workflow history from `.sdd/state.json`.
+- Blocked direct transition into `verify`; the `verify` phase must go through the dedicated `proofkit verify` command.
+- Blocked direct transition into `archived`; archive must go through `proofkit archive`.
+- Added `proofkit log` to inspect recorded workflow history from `.sdd/state.json`.
 - Tightened transition tests around restricted phases and recorded history.
 
 ## 0.1.8 - 2026-05-05
 
-- Added `ssd-core verify` as the explicit gate for recording the `verify` phase.
+- Added `proofkit verify` as the explicit gate for recording the `verify` phase.
 - Added placeholder-evidence detection so `verification.md` cannot pass with template text such as `not-run` or `pending verification evidence`.
-- Added `ssd-core phase` to show declared, artifact-inferred, and effective workflow phases.
+- Added `proofkit phase` to show declared, artifact-inferred, and effective workflow phases.
 - Added git `pre-push` hook generation alongside the existing pre-commit hook.
 - Exported verification helpers through the public Python API.
 
 ## 0.1.7 - 2026-05-05
 
 - Added `.sdd/state.json` as the explicit workflow registry for declared phases, transition history, and artifact checksums.
-- Added `ssd-core transition` and `SDDWorkflow.transition()` to enforce state-machine phase moves instead of trusting inferred Markdown state alone.
+- Added `proofkit transition` and `SDDWorkflow.transition()` to enforce state-machine phase moves instead of trusting inferred Markdown state alone.
 - Hardened `sync-specs` and `archive` so they require recorded workflow phases before running.
 - Added `guard --strict-state` and upgraded installed pre-commit hooks to block stale artifact checksums and unrecorded active changes.
 - Extended release checks to smoke-test strict guard enforcement from wheel and npm wrapper installs.
 
 ## 0.1.6 - 2026-05-05
 
-- Added `ssd-core guard` for CI and hook enforcement of repository governance.
-- Added `ssd-core install-hooks` to install a pre-commit hook that blocks commits without an active SDD change.
+- Added `proofkit guard` for CI and hook enforcement of repository governance.
+- Added `proofkit install-hooks` to install a pre-commit hook that blocks commits without an active SDD change.
 - Hardened `archive` so changes with `delta-spec.md` cannot archive until living specs are synced.
 - Extended release checks to smoke-test guard and hook installation from wheel and npm wrapper installs.
 
@@ -322,16 +342,16 @@ These tests are black-box behavioral assertions — they drive the public API (`
 
 ## 0.1.4 - 2026-05-05
 
-- Added `ssd-core run` as the workflow binding layer that creates or inspects a governed change and reports the enforced current phase.
+- Added `proofkit run` as the workflow binding layer that creates or inspects a governed change and reports the enforced current phase.
 - Added explicit workflow state types for not-started, propose, specify, design, task, verify, critique, archive-record, sync-specs, archive, archived, and blocked states.
-- Updated the Golden Path to use the real `ssd-core run` entrypoint instead of separate primitive commands only.
-- Extended release checks to smoke-test `ssd-core run` from both wheel installs and npm wrapper installs.
+- Updated the Golden Path to use the real `proofkit run` entrypoint instead of separate primitive commands only.
+- Extended release checks to smoke-test `proofkit run` from both wheel installs and npm wrapper installs.
 
 ## 0.1.3 - 2026-05-05
 
 - Repositioned the README around governance anti-hallucination for production agent workflows.
 - Added a Golden Path that shows a concrete login hardening change from init to archive.
-- Clarified when to use SSD-Core, when not to use it, and how it differs from generic SDD templates.
+- Clarified when to use ProofKit, when not to use it, and how it differs from generic SDD templates.
 
 ## 0.1.2 - 2026-05-05
 
@@ -350,11 +370,11 @@ These tests are black-box behavioral assertions — they drive the public API (`
 
 ## 0.1.0 - 2026-05-03
 
-Initial SSD-Core production candidate.
+Initial ProofKit production candidate.
 
 - Added protocol v0.1, constitution, profiles, schemas, adapter contract, agent contracts, and skill contracts.
 - Added dependency-free reference CLI with `init`, `validate`, `status`, `new`, `check`, `sync-specs`, `archive`, and `version`.
-- Added packaged `ssd-core` command with bundled templates and docs.
+- Added packaged `proofkit` command with bundled templates and docs.
 - Added concrete adapter manifests for Codex, Claude Code, Gemini CLI, OpenCode, and Qwen Code.
 - Added a portable release readiness script and CI workflow.
 - Added an npm wrapper package that delegates to the Python core.
@@ -362,4 +382,4 @@ Initial SSD-Core production candidate.
 - Added release-time version consistency checks across Python, npm, and Git tags.
 - Added a `uv venv --seed` fallback for Linux environments without `python3-venv`.
 - Added end-to-end lifecycle tests and a standard verified change example.
-- Added MIT license and attribution notices for the MIT-licensed projects that influenced SSD-Core.
+- Added MIT license and attribution notices for the MIT-licensed projects that influenced ProofKit.

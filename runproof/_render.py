@@ -283,6 +283,42 @@ def print_status(root: Path) -> int:
     return 1 if errors else 0
 
 
+def print_status_json(root: Path) -> int:
+    import json as _json
+    findings, changes = status(root)
+    errors = [f for f in findings if f.severity == "error"]
+
+    if not changes:
+        data = {
+            "change_id": None,
+            "phase": None,
+            "profile": None,
+            "next_action": "No active changes. Create one with 'runproof new'.",
+            "missing_artifacts": [],
+            "can_auto_advance": False,
+        }
+        print(_json.dumps(data))
+        return 0
+
+    change = changes[0]
+    from ._wf_inference import workflow_state
+    state = workflow_state(root, change.change_id)
+
+    auto_phases = {WorkflowPhase.SYNC_SPECS, WorkflowPhase.ARCHIVE}
+    can_auto = state.phase in auto_phases and not state.is_blocked
+
+    data = {
+        "change_id": state.change_id,
+        "phase": state.phase.value,
+        "profile": state.profile,
+        "next_action": state.next_action,
+        "missing_artifacts": change.missing,
+        "can_auto_advance": can_auto,
+    }
+    print(_json.dumps(data))
+    return 1 if errors else 0
+
+
 def print_findings(root: Path, findings: Iterable[Finding]) -> int:
     findings = list(findings)
     if not findings:

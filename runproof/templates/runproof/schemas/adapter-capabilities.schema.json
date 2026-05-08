@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://proofkit.local/schemas/adapter-capabilities.schema.json",
+  "$id": "https://runproof.local/schemas/adapter-capabilities.schema.json",
   "title": "ProofKit Adapter Capabilities",
   "type": "object",
   "additionalProperties": true,
   "required": ["schema", "adapter", "version", "profiles", "agents", "skills", "verification", "state"],
   "properties": {
     "schema": {
-      "const": "sdd.adapter-capabilities.v1"
+      "const": "runproof.adapter-capabilities.v1"
     },
     "adapter": {
       "type": "string",

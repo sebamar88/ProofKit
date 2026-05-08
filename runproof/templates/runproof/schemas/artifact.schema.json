@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://proofkit.local/schemas/artifact.schema.json",
+  "$id": "https://runproof.local/schemas/artifact.schema.json",
   "title": "ProofKit Artifact Metadata",
   "type": "object",
   "additionalProperties": true,

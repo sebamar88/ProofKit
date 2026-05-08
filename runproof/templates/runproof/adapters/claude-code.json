@@ -1,5 +1,5 @@
 {
-  "schema": "sdd.adapter-capabilities.v1",
+  "schema": "runproof.adapter-capabilities.v1",
   "adapter": "claude-code",
   "version": "0.1.0",
   "description": "Concrete adapter manifest for running ProofKit with Claude Code while preserving portable Markdown artifacts and verification gates.",
@@ -8,7 +8,7 @@
     "operating_system": "any",
     "path_translation": true,
     "process_execution": "native-tool-or-shell",
-    "state_location": "runtime-owned-outside-proofkit",
+    "state_location": "runtime-owned-outside-runproof",
     "recommended_invocation": "claude"
   },
   "profiles": {
@@ -38,7 +38,7 @@
     "command_execution": true,
     "manual_evidence": true,
     "screenshot_evidence": "when-tooling-is-available",
-    "required_core_commands": ["proofkit validate", "proofkit status", "proofkit check <change-id>"]
+    "required_core_commands": ["runproof validate", "runproof status", "runproof check <change-id>"]
   },
   "state": {
     "source_of_truth": "repository-artifacts",

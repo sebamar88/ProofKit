@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://proofkit.local/schemas/verification.schema.json",
+  "$id": "https://runproof.local/schemas/verification.schema.json",
   "title": "ProofKit Verification Record",
   "type": "object",
   "additionalProperties": true,
   "required": ["schema", "change_id", "status", "matrix"],
   "properties": {
     "schema": {
-      "const": "sdd.verification.v1"
+      "const": "runproof.verification.v1"
     },
     "change_id": {
       "type": "string",

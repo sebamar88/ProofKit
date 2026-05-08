@@ -44,19 +44,16 @@ class TestCore(unittest.TestCase):
         self.assertEqual(package["name"], "runproof-cli")
 
     def test_packaged_templates_are_present(self) -> None:
-        template_root = files("proofkit").joinpath("templates")
+        from importlib.resources import files as res_files
+        template_root = res_files("runproof").joinpath("templates")
 
-        self.assertTrue(template_root.joinpath("sdd", "constitution.md").is_file())
-        self.assertTrue(template_root.joinpath("sdd", "state.json").is_file())
-        self.assertTrue(template_root.joinpath("sdd", "evidence", ".gitkeep").is_file())
-        self.assertTrue(template_root.joinpath("sdd", "adapters", "generic-markdown.json").is_file())
-        self.assertTrue(template_root.joinpath("sdd", "adapters", "codex.json").is_file())
-        self.assertTrue(template_root.joinpath("sdd", "adapters", "claude-code.json").is_file())
-        self.assertTrue(template_root.joinpath("sdd", "adapters", "gemini-cli.json").is_file())
-        self.assertTrue(template_root.joinpath("sdd", "adapters", "opencode.json").is_file())
-        self.assertTrue(template_root.joinpath("sdd", "adapters", "qwen-code.json").is_file())
+        self.assertTrue(template_root.joinpath("runproof", "constitution.md").is_file())
+        self.assertTrue(template_root.joinpath("runproof", "state.json").is_file())
+        self.assertTrue(template_root.joinpath("runproof", "evidence", ".gitkeep").is_file())
+        self.assertTrue(template_root.joinpath("runproof", "adapters", "claude-code.json").is_file())
+        self.assertTrue(template_root.joinpath("runproof", "adapters", "github-copilot.json").is_file())
         self.assertTrue(template_root.joinpath("docs", "adapters-v0.1.md").is_file())
-        self.assertTrue(template_root.joinpath("docs", "proofkit-protocol-v0.1.md").is_file())
+        self.assertTrue(template_root.joinpath("docs", "runproof-protocol-v0.1.md").is_file())
 
     def test_standard_profile_artifacts_are_defined(self) -> None:
         self.assertEqual(

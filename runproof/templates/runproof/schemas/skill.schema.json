@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://proofkit.local/schemas/skill.schema.json",
+  "$id": "https://runproof.local/schemas/skill.schema.json",
   "title": "ProofKit Skill Contract Metadata",
   "type": "object",
   "additionalProperties": true,
   "required": ["schema", "artifact", "skill", "status"],
   "properties": {
     "schema": {
-      "const": "sdd.skill.v1"
+      "const": "runproof.skill.v1"
     },
     "artifact": {
       "const": "skill"

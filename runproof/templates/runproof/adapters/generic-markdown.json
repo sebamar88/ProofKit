@@ -1,5 +1,5 @@
 {
-  "schema": "sdd.adapter-capabilities.v1",
+  "schema": "runproof.adapter-capabilities.v1",
   "adapter": "generic-markdown",
   "version": "0.1.0",
   "description": "Portable file-based adapter contract for any agent or human workflow that can read and write Markdown artifacts.",

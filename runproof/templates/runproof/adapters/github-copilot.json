@@ -1,15 +1,15 @@
 {
-  "schema": "sdd.adapter-capabilities.v1",
-  "adapter": "cursor",
+  "schema": "runproof.adapter-capabilities.v1",
+  "adapter": "github-copilot",
   "version": "0.1.0",
-  "description": "Concrete adapter manifest for running ProofKit with Cursor (Chat, Composer, Agent mode) while keeping repository artifacts as the source of truth.",
+  "description": "Concrete adapter manifest for running ProofKit with GitHub Copilot (Chat, Edits, Agent mode) while keeping repository artifacts as the source of truth.",
   "host": {
-    "agent_runtime": "cursor",
+    "agent_runtime": "github-copilot",
     "operating_system": "any",
     "path_translation": true,
     "process_execution": "integrated-terminal",
-    "state_location": "runtime-owned-outside-proofkit",
-    "recommended_invocation": "cursor-composer-or-agent-mode"
+    "state_location": "runtime-owned-outside-runproof",
+    "recommended_invocation": "copilot-chat-or-agent-mode"
   },
   "profiles": {
     "supported": ["quick", "standard", "bugfix", "refactor", "enterprise", "research"],
@@ -18,17 +18,17 @@
   "agents": {
     "supported": ["orchestrator", "explorer", "specifier", "architect", "planner", "implementer", "verifier", "critic", "archivist"],
     "mapping": {
-      "orchestrator": "cursor-composer-session",
-      "explorer": "codebase-search-and-file-reading",
+      "orchestrator": "copilot-agent-mode-session",
+      "explorer": "workspace-search-and-file-reading",
       "specifier": "artifact-authoring-pass",
       "architect": "design-review-pass",
       "planner": "task-breakdown-pass",
-      "implementer": "code-editing-via-composer-or-inline",
+      "implementer": "code-editing-via-inline-or-agent",
       "verifier": "terminal-command-and-evidence-pass",
       "critic": "review-pass",
       "archivist": "sync-and-archive-pass"
     },
-    "delegation": "single-agent-with-composer-edits"
+    "delegation": "single-agent-with-inline-edits"
   },
   "skills": {
     "supported": ["propose", "specify", "design", "task", "implement", "verify", "critique", "sync-specs", "archive"],
@@ -38,7 +38,7 @@
     "command_execution": true,
     "manual_evidence": true,
     "screenshot_evidence": "not-available",
-    "required_core_commands": ["proofkit validate", "proofkit status", "proofkit check <change-id>"]
+    "required_core_commands": ["runproof validate", "runproof status", "runproof check <change-id>"]
   },
   "state": {
     "source_of_truth": "repository-artifacts",

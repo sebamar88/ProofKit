@@ -1,5 +1,5 @@
 {
-  "schema": "sdd.adapter-capabilities.v1",
+  "schema": "runproof.adapter-capabilities.v1",
   "adapter": "codex",
   "version": "0.1.0",
   "description": "Concrete adapter manifest for running ProofKit with Codex-style coding agents while keeping repository artifacts as the source of truth.",
@@ -8,7 +8,7 @@
     "operating_system": "any",
     "path_translation": true,
     "process_execution": "native-tool-or-shell",
-    "state_location": "runtime-owned-outside-proofkit",
+    "state_location": "runtime-owned-outside-runproof",
     "recommended_invocation": "codex"
   },
   "profiles": {
@@ -38,7 +38,7 @@
     "command_execution": true,
     "manual_evidence": true,
     "screenshot_evidence": "when-browser-or-visual-tools-are-available",
-    "required_core_commands": ["proofkit validate", "proofkit status", "proofkit check <change-id>"]
+    "required_core_commands": ["runproof validate", "runproof status", "runproof check <change-id>"]
   },
   "state": {
     "source_of_truth": "repository-artifacts",

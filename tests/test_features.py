@@ -100,7 +100,7 @@ class TestFeatures(unittest.TestCase):
     def test_list_available_integrations_returns_all_known(self) -> None:
         integrations = sdd.list_available_integrations()
         self.assertIsInstance(integrations, list)
-        expected = {"claude-code", "copilot", "opencode", "codex", "gemini-cli", "generic"}
+        expected = {"claude-code", "copilot", "cursor", "opencode", "codex", "gemini-cli", "generic"}
         self.assertEqual(set(integrations), expected)
         self.assertEqual(integrations, sorted(integrations))
 

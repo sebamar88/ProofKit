@@ -251,6 +251,27 @@ class TestCore(unittest.TestCase):
         self.assertIn("RunProof Constitution", content)
         shutil.rmtree(root, ignore_errors=True)
 
+    def test_install_commands_copilot_uses_correct_path(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"cmds-copilot-{uuid.uuid4().hex}"
+        root.mkdir(parents=True)
+        with contextlib.redirect_stdout(io.StringIO()):
+            findings = sdd.install_commands(root, "copilot", "repo")
+        self.assertEqual(findings, [])
+        prompts_dir = root / ".github" / "prompts"
+        self.assertTrue(prompts_dir.is_dir(), f".github/prompts/ not created")
+        shutil.rmtree(root, ignore_errors=True)
+
+    def test_command_template_files_exist(self) -> None:
+        from runproof._wf_templates import template_commands_root
+        tmpl = template_commands_root()
+        for filename in ["runproof-next.md", "runproof-new.md", "runproof-status.md",
+                         "runproof-verify.md", "runproof-constitution.md"]:
+            self.assertTrue(tmpl.joinpath(filename).is_file(), f"Missing: {filename}")
+        for filename in ["runproof-next.prompt.md", "runproof-new.prompt.md",
+                         "runproof-status.prompt.md", "runproof-verify.prompt.md",
+                         "runproof-constitution.prompt.md"]:
+            self.assertTrue(tmpl.joinpath("copilot", filename).is_file(), f"Missing copilot: {filename}")
+
 
 if __name__ == "__main__":
     unittest.main()

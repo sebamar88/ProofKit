@@ -18,17 +18,37 @@ from ._types import (
 
 # ── install-commands integration directories ───────────────────────────────────
 _INTEGRATION_COMMAND_DIRS: dict[str, dict[str, str]] = {
-    "claude-code": {"repo": ".claude/commands",              "user": ".claude/commands",              "local": ".claude/commands"},
-    "copilot":     {"repo": ".github/copilot-prompts/sdd",   "user": ".github/copilot-prompts/sdd",   "local": ".github/copilot-prompts/sdd"},
-    "opencode":    {"repo": ".opencode/commands/sdd",        "user": ".config/opencode/commands/sdd", "local": ".opencode/commands/sdd"},
-    "codex":       {"repo": ".codex/commands/sdd",           "user": ".codex/commands/sdd",           "local": ".codex/commands/sdd"},
-    "gemini-cli":  {"repo": ".gemini/commands/sdd",          "user": ".gemini/commands/sdd",          "local": ".gemini/commands/sdd"},
-    "generic":     {"repo": f"{SDD_DIR}/commands",                 "user": f"{SDD_DIR}/commands",                 "local": f"{SDD_DIR}/commands"},
+    "claude-code": {"repo": ".claude/commands",       "user": ".claude/commands",          "local": ".claude/commands"},
+    "copilot":     {"repo": ".github/prompts",        "user": ".github/prompts",           "local": ".github/prompts"},
+    "opencode":    {"repo": ".opencode/commands",     "user": ".config/opencode/commands", "local": ".opencode/commands"},
+    "codex":       {"repo": ".codex/commands",        "user": ".codex/commands",           "local": ".codex/commands"},
+    "cursor":      {"repo": ".cursor/rules",          "user": ".cursor/rules",             "local": ".cursor/rules"},
+    "gemini-cli":  {"repo": ".gemini/commands",       "user": ".gemini/commands",          "local": ".gemini/commands"},
+    "generic":     {"repo": f"{SDD_DIR}/commands",    "user": f"{SDD_DIR}/commands",       "local": f"{SDD_DIR}/commands"},
 }
 
 COMMAND_SCOPES: list[str] = ["repo", "user", "local"]
 
-_COMMAND_FILES: list[str] = []
+_COMMAND_FILES_BY_INTEGRATION: dict[str, list[str]] = {
+    "copilot": [
+        "runproof-next.prompt.md",
+        "runproof-new.prompt.md",
+        "runproof-status.prompt.md",
+        "runproof-verify.prompt.md",
+        "runproof-constitution.prompt.md",
+    ],
+    "_default": [
+        "runproof-next.md",
+        "runproof-new.md",
+        "runproof-status.md",
+        "runproof-verify.md",
+        "runproof-constitution.md",
+    ],
+}
+
+
+def command_files_for(integration: str) -> list[str]:
+    return _COMMAND_FILES_BY_INTEGRATION.get(integration, _COMMAND_FILES_BY_INTEGRATION["_default"])
 
 
 def logical_path(root: Path, value: str) -> Path:
@@ -140,8 +160,11 @@ def install_commands(
     tmpl = template_commands_root()
     installed: list[str] = []
     skipped: list[str] = []
-    for filename in _COMMAND_FILES:
-        src = tmpl / filename
+    for filename in command_files_for(integration):
+        if integration == "copilot":
+            src = tmpl / "copilot" / filename
+        else:
+            src = tmpl / filename
         dst = target_dir / filename
         if dst.exists():
             skipped.append(filename)

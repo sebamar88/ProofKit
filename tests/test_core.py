@@ -241,6 +241,16 @@ class TestCore(unittest.TestCase):
         self.assertEqual(sdd.SDD_DIR, ".runproof")
         self.assertIn("constitution", sdd.MEMORY_KEYS)
 
+    def test_constitution_memory_key_is_supported(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"constitution-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+        constitution_path = root / ".runproof" / "memory" / "constitution.md"
+        self.assertTrue(constitution_path.is_file(), f"constitution.md not found at {constitution_path}")
+        content = constitution_path.read_text(encoding="utf-8")
+        self.assertIn("RunProof Constitution", content)
+        shutil.rmtree(root, ignore_errors=True)
+
 
 if __name__ == "__main__":
     unittest.main()

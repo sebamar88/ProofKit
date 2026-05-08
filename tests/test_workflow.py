@@ -467,5 +467,44 @@ class TestWorkflow(unittest.TestCase):
         self.assertNotIn("--require-active-change", push_text)
 
 
+class TestMarkArtifactReady(unittest.TestCase):
+    """Tests for the proofkit ready UX command."""
+
+    def _init_and_create(self, root: Path, change_id: str) -> None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(sdd.init_project(root), [])
+            self.assertEqual(sdd.create_change(root, change_id, "standard", "Test change"), [])
+
+    def test_ready_marks_proposal_as_ready(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"ready-{uuid.uuid4().hex}"
+        change_id = "add-feature"
+        self._init_and_create(root, change_id)
+
+        proposal = root / ".proofkit" / "changes" / change_id / "proposal.md"
+        self.assertIn("status: draft", proposal.read_text(encoding="utf-8"))
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            findings = sdd.mark_artifact_ready(root, change_id)
+
+        self.assertEqual(findings, [], [f.message for f in findings])
+        self.assertIn("status: ready", proposal.read_text(encoding="utf-8"))
+
+    def test_ready_rejects_missing_change(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"ready-missing-{uuid.uuid4().hex}"
+        with contextlib.redirect_stdout(io.StringIO()):
+            sdd.init_project(root)
+
+        findings = sdd.mark_artifact_ready(root, "no-such-change")
+        self.assertTrue(any(f.severity == "error" for f in findings))
+
+    def test_ready_rejects_invalid_change_id(self) -> None:
+        root = REPO_ROOT / ".tmp-tests" / f"ready-invalid-{uuid.uuid4().hex}"
+        findings = sdd.mark_artifact_ready(root, "INVALID ID!")
+        self.assertTrue(any(f.severity == "error" for f in findings))
+
+    def test_ready_exported_from_package(self) -> None:
+        self.assertTrue(callable(proofkit.mark_artifact_ready))
+
+
 if __name__ == "__main__":
     unittest.main()

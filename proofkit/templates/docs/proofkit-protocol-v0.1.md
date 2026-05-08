@@ -1,17 +1,17 @@
 ---
 schema: sdd.protocol.v1
-title: SDD-Core Protocol v0.1
+title: ProofKit Protocol v0.1
 status: draft
 date: 2026-05-03
 audience: agent-framework-builders
 scope: protocol
 ---
 
-# SDD-Core Protocol v0.1
+# ProofKit Protocol v0.1
 
 ## 1. Purpose
 
-SDD-Core is an agent-agnostic and operating-system-agnostic protocol for spec-driven development. It defines the minimum artifacts, lifecycle states, validation contracts, and adapter boundaries needed for AI coding agents to build software from explicit intent instead of chat-only context.
+ProofKit is an agent-agnostic and operating-system-agnostic protocol for spec-driven development. It defines the minimum artifacts, lifecycle states, validation contracts, and adapter boundaries needed for AI coding agents to build software from explicit intent instead of chat-only context.
 
 The protocol is Markdown-first so humans can read and edit it directly. It is also machine-validable through required frontmatter, stable artifact names, and optional JSON schemas.
 
@@ -37,7 +37,7 @@ The protocol is Markdown-first so humans can read and edit it directly. It is al
 
 ## 4. Influences
 
-SDD-Core distills four existing patterns:
+ProofKit distills four existing patterns:
 
 - GitHub Spec Kit: constitution-driven development, phase gates, task traceability, and executable specifications.
 - OpenSpec: artifact store, delta specs, active changes, and archive/sync workflow.
@@ -48,7 +48,7 @@ The protocol intentionally does not clone any one of these systems.
 
 ## 5. Platform Independence
 
-SDD-Core uses logical repository paths in examples. Logical paths use `/` as a portable notation, not as an operating-system requirement.
+ProofKit uses logical repository paths in examples. Logical paths use `/` as a portable notation, not as an operating-system requirement.
 
 Adapters MUST translate logical paths, commands, environment access, file permissions, and process execution into the host platform's native behavior.
 
@@ -212,7 +212,7 @@ An adapter manifest is a machine-readable capability declaration under `.sdd/ada
 
 ## 8. Required Artifact Metadata
 
-Every SDD-Core artifact SHOULD begin with frontmatter.
+Every ProofKit artifact SHOULD begin with frontmatter.
 
 Minimum fields:
 
@@ -516,7 +516,7 @@ Archive MUST NOT occur when:
 
 ## 17. Adapter Contract
 
-An adapter integrates SDD-Core into a concrete tool.
+An adapter integrates ProofKit into a concrete tool.
 
 An adapter SHOULD define:
 
@@ -543,7 +543,7 @@ The adapter can vary. The artifact contract must remain stable.
 
 ## 18. Validation Levels
 
-SDD-Core supports three validation levels:
+ProofKit supports three validation levels:
 
 ### Level 0: Human-readable
 

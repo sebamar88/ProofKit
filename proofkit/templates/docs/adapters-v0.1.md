@@ -30,7 +30,7 @@ Every shipped adapter preserves these rules:
 - `.sdd` artifacts are the source of truth.
 - Runtime state must stay outside the core protocol artifacts.
 - Paths are repository-relative at the protocol boundary.
-- Verification evidence must be written back to SDD-Core artifacts.
+- Verification evidence must be written back to ProofKit artifacts.
 - Archive remains blocked until `proofkit check <change-id>` passes.
 - Unsupported runtime features must be reported instead of silently assumed.
 

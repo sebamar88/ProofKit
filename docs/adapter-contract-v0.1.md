@@ -1,19 +1,19 @@
 ---
 schema: sdd.adapter-contract.v1
-title: SDD-Core Adapter Contract v0.1
+title: ProofKit Adapter Contract v0.1
 status: draft
 date: 2026-05-03
 audience: adapter-authors
 scope: protocol-adapter
 ---
 
-# SDD-Core Adapter Contract v0.1
+# ProofKit Adapter Contract v0.1
 
 ## 1. Purpose
 
-An SDD-Core adapter connects the protocol to a concrete agent environment, IDE, automation runtime, or command surface without changing the protocol core.
+An ProofKit adapter connects the protocol to a concrete agent environment, IDE, automation runtime, or command surface without changing the protocol core.
 
-The adapter contract defines what an integration must preserve so SDD-Core remains agent-agnostic and operating-system-agnostic.
+The adapter contract defines what an integration must preserve so ProofKit remains agent-agnostic and operating-system-agnostic.
 
 ## 2. Adapter Responsibilities
 
@@ -24,12 +24,12 @@ An adapter MUST:
 - Support at least one profile from `.sdd/profiles/`.
 - Translate logical paths to host-native paths.
 - Translate verification actions to host-native process execution or manual evidence capture.
-- Record outputs in SDD-Core artifacts instead of relying only on chat history.
+- Record outputs in ProofKit artifacts instead of relying only on chat history.
 - Report unsupported capabilities explicitly.
 
 An adapter MUST NOT:
 
-- Require changes to SDD-Core schemas to support one agent.
+- Require changes to ProofKit schemas to support one agent.
 - Encode one operating system as the protocol default.
 - Treat a checked task as sufficient verification evidence.
 - Archive a behavior-changing change without updating living specs or documenting why no update is needed.
@@ -73,7 +73,7 @@ ProofKit includes a baseline manifest at `.sdd/adapters/generic-markdown.json`.
 
 ## 4. Path Translation
 
-SDD-Core examples use logical repository paths such as `.sdd/changes/add-dark-mode/tasks.md`.
+ProofKit examples use logical repository paths such as `.sdd/changes/add-dark-mode/tasks.md`.
 
 Adapters MUST translate logical paths into the host platform's native file access behavior.
 
@@ -125,7 +125,7 @@ Adapters SHOULD avoid passing full artifact contents between agents when a file 
 
 ## 7. Delegation Model
 
-SDD-Core does not require subagents.
+ProofKit does not require subagents.
 
 Adapters may implement one of these models:
 
@@ -192,7 +192,7 @@ Fully autonomous adapters must replace approval gates with explicit policy check
 
 ## 12. Compliance Checklist
 
-An adapter is SDD-Core compliant when it can:
+An adapter is ProofKit compliant when it can:
 
 - initialize or detect `.sdd/`
 - read the constitution

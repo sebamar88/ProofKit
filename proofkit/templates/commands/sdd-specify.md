@@ -1,30 +1,6 @@
-# SDD-Core: Draft Delta-Spec
+Write the delta-spec for the active ProofKit change.
 
-I'll help you write the **delta-spec** — the contract that documents *only what changes*
-in this commit, not the full specification.
-
-Answer the following questions:
-
-1. **Change ID** – What is the `change_id`?
-   *(run `sdd-core phase <change_id>` to confirm you are in the SPECIFY phase)*
-
-2. **Components affected** – Which files, modules, APIs, or data models are touched?
-
-3. **Behavior before** – What does the system do today that this change replaces or extends?
-
-4. **Behavior after** – What will the system do once this change lands?
-
-5. **Interface contracts** – Any public API, CLI flags, config keys, or schema changes?
-   List each new/changed/removed surface with before → after.
-
-6. **Acceptance criteria** – State 3–5 verifiable, unambiguous acceptance conditions.
-
----
-
-Once you answer, I will write `.sdd/changes/<change_id>/delta-spec.md` with `status: draft`.
-
-When the spec is reviewed and ready, set `status: ready` and run:
-
-```bash
-sdd-core transition <change_id> design
-```
+1. Run `proofkit status` to find the `change_id`, then read `proposal.md`.
+2. Derive the spec directly from the proposal — what components change, what the behavior is before and after, and 3–5 verifiable acceptance criteria. Ask the user only if something critical is missing.
+3. Write `.proofkit/changes/<change_id>/delta-spec.md`. Document *only what changes*, not the entire system.
+4. Run `proofkit ready <change_id>` to mark the spec ready and advance to DESIGN.

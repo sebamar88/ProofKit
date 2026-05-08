@@ -8,7 +8,7 @@
     "operating_system": "any",
     "path_translation": true,
     "process_execution": "native-tool-or-shell",
-    "state_location": "runtime-owned-outside-sdd-core",
+    "state_location": "runtime-owned-outside-proofkit",
     "recommended_invocation": "opencode"
   },
   "profiles": {

@@ -65,6 +65,7 @@ from ._workflow import (
     read_workflow_registry,
     state_entry,
     workflow_registry_path,
+    mark_artifact_ready,
     WorkflowEngine,
     AutoStep,
     EngineStep,
@@ -191,6 +192,7 @@ def print_phase(root: Path, change_id: str) -> int:
 
 
 def print_workflow(root: Path, state: WorkflowState) -> int:
+    from ._wf_registry import _PHASE_ARTIFACT_FILE
     icon = _PHASE_ICON.get(state.phase.value, " ")
     phase_str = _red(icon + " " + state.phase.value) if state.is_blocked else _cyan(icon + " " + state.phase.value)
     print(_bold("SDD workflow"))
@@ -198,7 +200,19 @@ def print_workflow(root: Path, state: WorkflowState) -> int:
     print(f"  change  : {state.change_id}")
     print(f"  profile : {state.profile}")
     print(f"  phase   : {phase_str}")
-    print(f"  next    : {state.next_action}")
+
+    artifact_filename = _PHASE_ARTIFACT_FILE.get(state.phase)
+    if artifact_filename and not state.is_blocked:
+        artifact_path = root / ".proofkit" / "changes" / state.change_id / artifact_filename
+        try:
+            rel = artifact_path.relative_to(root).as_posix()
+        except ValueError:
+            rel = str(artifact_path)
+        print(f"  file    : {_dim(rel)}")
+        print(f"  next    : {state.next_action}")
+        print(f"  hint    : {_cyan(f'proofkit ready {state.change_id}')}  {_dim('(marks artifact as ready)')}")
+    else:
+        print(f"  next    : {state.next_action}")
 
     if state.findings:
         print("")
@@ -216,6 +230,14 @@ def print_transition(root: Path, state: WorkflowState) -> int:
         for finding in state.findings:
             pre = _red("  \u2717") if finding.severity == "error" else _yellow("  \u26a0")
             print(pre + " " + finding.format(root))
+        # Actionable hint when blocked because the artifact isn't ready yet
+        has_artifact_block = any(
+            "artifacts do not support transition" in (f.message or "") or
+            "artifact phase is" in (f.message or "")
+            for f in state.findings
+        )
+        if has_artifact_block:
+            print(_dim(f"  → Run: proofkit ready {state.change_id}"))
         return 1
 
     icon = _PHASE_ICON.get(state.phase.value, " ")

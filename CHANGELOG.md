@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.26.0 - 2026-05-08
+
+**Feature: `proofkit ready` — interactive UX command**
+
+- New `proofkit ready <change-id>` command marks the current phase's artifact as
+  `status: ready` and prints the next command to run, eliminating the need to
+  manually edit YAML frontmatter.
+- `proofkit run` / `proofkit status` now display the artifact file path and a
+  `proofkit ready <change-id>` hint when the workflow is waiting for human input.
+- `proofkit transition` blocked output now includes a `→ Run: proofkit ready`
+  hint so the user knows exactly what to do next.
+- `mark_artifact_ready(root, change_id)` exported from the public package API.
+
 ## 0.25.0 - 2026-05-07
 
 **Fix: test and release-check path references updated for .proofkit rebranding**

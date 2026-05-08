@@ -20,20 +20,37 @@ from ._dispatch import (  # noqa: F401
 from ._types import _PHASE_ICON  # noqa: F401
 from ._workflow import _PHASE_ARTIFACT_FILE, _auto_advance  # noqa: F401
 from ._workflow import _CI_TEMPLATES  # noqa: F401
+from ._wf_changeops import mark_artifact_ready  # noqa: F401
 
+
+
+class _HelpfulParser(argparse.ArgumentParser):
+    """ArgumentParser that prints the relevant sub-command help before any error message."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("formatter_class", argparse.RawDescriptionHelpFormatter)
+        super().__init__(*args, **kwargs)
+
+    def error(self, message: str) -> None:
+        self.print_help(sys.stderr)
+        self.exit(2, f"\nerror: {message}\n")
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="ProofKit utility")
+    parser = _HelpfulParser(description="ProofKit utility")
     parser.add_argument(
         "--trace",
         action="store_true",
         default=False,
         help="emit component-level trace output to stderr for debugging",
     )
-    subcommands = parser.add_subparsers(dest="command", required=True)
+    subcommands = parser.add_subparsers(dest="command", required=True, parser_class=_HelpfulParser)
 
-    validate_parser = subcommands.add_parser("validate", help="validate ProofKit repository artifacts")
+    validate_parser = subcommands.add_parser(
+        "validate",
+        help="validate ProofKit repository artifacts",
+        epilog="example:\n  proofkit validate\n  proofkit validate --root ./my-repo",
+    )
     validate_parser.add_argument(
         "--root",
         default=".",
@@ -45,6 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
     demo_parser = subcommands.add_parser(
         "demo",
         help="run an annotated Golden Path walkthrough in a temporary directory",
+        epilog="example:\n  proofkit demo\n  proofkit demo --fast          # 30-second anti-hallucination proof",
     )
     demo_parser.add_argument(
         "--fast",
@@ -55,6 +73,7 @@ def build_parser() -> argparse.ArgumentParser:
     auto_parser = subcommands.add_parser(
         "auto",
         help="advance a change: execute all ready steps, stop on human-work phases",
+        epilog="example:\n  proofkit auto add-dark-mode\n  proofkit auto add-dark-mode --loop --verify-with 'pytest -x'",
     )
     auto_parser.add_argument("change_id", help="kebab-case change identifier")
     auto_parser.add_argument(
@@ -75,7 +94,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    init_parser = subcommands.add_parser("init", help="initialize ProofKit artifacts in a repository")
+    init_parser = subcommands.add_parser(
+        "init",
+        help="initialize ProofKit artifacts in a repository",
+        epilog="example:\n  proofkit init\n  proofkit init --integration github-copilot\n  proofkit init --no-prompt",
+    )
     init_parser.add_argument(
         "--root",
         default=".",
@@ -98,14 +121,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="skip the interactive agent integration prompt (CI-friendly)",
     )
 
-    status_parser = subcommands.add_parser("status", help="show ProofKit repository status")
+    status_parser = subcommands.add_parser(
+        "status",
+        help="show ProofKit repository status",
+        epilog="example:\n  proofkit status",
+    )
     status_parser.add_argument(
         "--root",
         default=".",
         help="repository root; defaults to the current directory",
     )
 
-    check_parser = subcommands.add_parser("check", help="check whether a ProofKit change is ready to archive")
+    check_parser = subcommands.add_parser(
+        "check",
+        help="check whether a ProofKit change is ready to archive",
+        epilog="example:\n  proofkit check add-dark-mode",
+    )
     check_parser.add_argument("change_id", help="kebab-case change identifier")
     check_parser.add_argument(
         "--root",
@@ -113,7 +144,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    archive_parser = subcommands.add_parser("archive", help="archive a verified ProofKit change")
+    archive_parser = subcommands.add_parser(
+        "archive",
+        help="archive a verified ProofKit change",
+        epilog="example:\n  proofkit archive add-dark-mode",
+    )
     archive_parser.add_argument("change_id", help="kebab-case change identifier")
     archive_parser.add_argument(
         "--root",
@@ -121,7 +156,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    sync_parser = subcommands.add_parser("sync-specs", help="sync a verified change delta into living specs")
+    sync_parser = subcommands.add_parser(
+        "sync-specs",
+        help="sync a verified change delta into living specs",
+        epilog="example:\n  proofkit sync-specs add-dark-mode",
+    )
     sync_parser.add_argument("change_id", help="kebab-case change identifier")
     sync_parser.add_argument(
         "--root",
@@ -129,7 +168,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    new_parser = subcommands.add_parser("new", help="create a new ProofKit change artifact set")
+    new_parser = subcommands.add_parser(
+        "new",
+        help="create a new ProofKit change artifact set",
+        epilog="example:\n  proofkit new add-dark-mode --title 'Add dark mode toggle'\n  proofkit new fix-login-bug",
+    )
+    ready_parser = subcommands.add_parser(
+        "ready",
+        help="mark the current artifact as ready — the UX-friendly alternative to editing frontmatter manually",
+        epilog="example:\n  proofkit ready add-dark-mode",
+    )
+    ready_parser.add_argument("change_id", help="kebab-case change identifier")
+    ready_parser.add_argument(
+        "--root",
+        default=".",
+        help="repository root; defaults to the current directory",
+    )
     new_parser.add_argument("change_id", help="kebab-case change identifier")
     new_parser.add_argument(
         "--profile",
@@ -147,7 +201,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    run_parser = subcommands.add_parser("run", help="run the ProofKit workflow gate for a change")
+    run_parser = subcommands.add_parser(
+        "run",
+        help="run the ProofKit workflow gate for a change",
+        epilog="example:\n  proofkit run add-dark-mode\n  proofkit run add-dark-mode --no-create",
+    )
     run_parser.add_argument("change_id", help="kebab-case change identifier")
     run_parser.add_argument(
         "--profile",
@@ -170,7 +228,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    transition_parser = subcommands.add_parser("transition", help="record an enforced workflow phase transition")
+    transition_parser = subcommands.add_parser(
+        "transition",
+        help="record an enforced workflow phase transition",
+        epilog=(
+            "example:\n"
+            "  proofkit transition add-dark-mode specify\n"
+            "\nvalid phases: propose, specify, design, task, critique,\n"
+            "  archive-record, sync-specs, archive\n"
+            "\nnote: use 'proofkit verify' to record the verify phase"
+        ),
+    )
     transition_parser.add_argument("change_id", help="kebab-case change identifier")
     transition_parser.add_argument(
         "phase",
@@ -192,7 +260,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    log_parser = subcommands.add_parser("log", help="show the recorded command history for a change")
+    log_parser = subcommands.add_parser(
+        "log",
+        help="show the recorded command history for a change",
+        epilog="example:\n  proofkit log add-dark-mode",
+    )
     log_parser.add_argument("change_id", help="kebab-case change identifier")
     log_parser.add_argument(
         "--root",
@@ -200,7 +272,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    verify_parser = subcommands.add_parser("verify", help="validate evidence quality and record the verify phase")
+    verify_parser = subcommands.add_parser(
+        "verify",
+        help="validate evidence quality and record the verify phase",
+        epilog=(
+            "example:\n"
+            "  proofkit verify add-dark-mode --discover\n"
+            "  proofkit verify add-dark-mode --command 'pytest -x'\n"
+            "  proofkit verify add-dark-mode --command 'npm test' --command 'eslint .'"
+        ),
+    )
     verify_parser.add_argument("change_id", help="kebab-case change identifier")
     verify_parser.add_argument(
         "--command",
@@ -240,6 +321,7 @@ def build_parser() -> argparse.ArgumentParser:
     evidence_parser = subcommands.add_parser(
         "evidence",
         help="show execution evidence records for a change",
+        epilog="example:\n  proofkit evidence add-dark-mode",
     )
     evidence_parser.add_argument("change_id", help="kebab-case change identifier")
     evidence_parser.add_argument(
@@ -251,6 +333,7 @@ def build_parser() -> argparse.ArgumentParser:
     pr_check_parser = subcommands.add_parser(
         "pr-check",
         help="output a PR-ready governance report and exit 0 only if the change is safe to merge",
+        epilog="example:\n  proofkit pr-check add-dark-mode",
     )
     pr_check_parser.add_argument("change_id", help="kebab-case change identifier")
     pr_check_parser.add_argument(
@@ -259,7 +342,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    phase_parser = subcommands.add_parser("phase", help="show declared and inferred workflow phase for a change")
+    phase_parser = subcommands.add_parser(
+        "phase",
+        help="show declared and inferred workflow phase for a change",
+        epilog="example:\n  proofkit phase add-dark-mode",
+    )
     phase_parser.add_argument("change_id", help="kebab-case change identifier")
     phase_parser.add_argument(
         "--root",
@@ -267,7 +354,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    guard_parser = subcommands.add_parser("guard", help="enforce ProofKit repository governance for hooks or CI")
+    guard_parser = subcommands.add_parser(
+        "guard",
+        help="enforce ProofKit repository governance for hooks or CI",
+        epilog="example:\n  proofkit guard\n  proofkit guard --strict-state --require-execution-evidence",
+    )
     guard_parser.add_argument(
         "--require-active-change",
         action="store_true",
@@ -289,17 +380,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    hooks_parser = subcommands.add_parser("install-hooks", help="install ProofKit git enforcement hooks")
+    hooks_parser = subcommands.add_parser(
+        "install-hooks",
+        help="install ProofKit git enforcement hooks",
+        epilog="example:\n  proofkit install-hooks",
+    )
     hooks_parser.add_argument(
         "--root",
         default=".",
         help="repository root; defaults to the current directory",
     )
 
-    ext_parser = subcommands.add_parser("extension", help="manage ProofKit extensions")
-    ext_sub = ext_parser.add_subparsers(dest="ext_action", required=True)
+    ext_parser = subcommands.add_parser(
+        "extension",
+        help="manage ProofKit extensions",
+        epilog="example:\n  proofkit extension install ./my-ext\n  proofkit extension list\n  proofkit extension remove my-ext",
+    )
+    ext_sub = ext_parser.add_subparsers(dest="ext_action", required=True, parser_class=_HelpfulParser)
 
-    ext_install = ext_sub.add_parser("install", help="install an extension from a local directory")
+    ext_install = ext_sub.add_parser(
+        "install",
+        help="install an extension from a local directory",
+        epilog="example:\n  proofkit extension install ./my-extension",
+    )
     ext_install.add_argument("path", help="path to the extension source directory")
     ext_install.add_argument(
         "--root",
@@ -307,14 +410,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    ext_list = ext_sub.add_parser("list", help="list installed extensions")
+    ext_list = ext_sub.add_parser(
+        "list",
+        help="list installed extensions",
+        epilog="example:\n  proofkit extension list",
+    )
     ext_list.add_argument(
         "--root",
         default=".",
         help="repository root; defaults to the current directory",
     )
 
-    ext_remove = ext_sub.add_parser("remove", help="remove an installed extension")
+    ext_remove = ext_sub.add_parser(
+        "remove",
+        help="remove an installed extension",
+        epilog="example:\n  proofkit extension remove my-extension",
+    )
     ext_remove.add_argument("name", help="extension name to remove")
     ext_remove.add_argument(
         "--root",
@@ -322,10 +433,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="repository root; defaults to the current directory",
     )
 
-    mem_parser = subcommands.add_parser("memory", help="read or update the project memory")
-    mem_sub = mem_parser.add_subparsers(dest="mem_action", required=True)
+    mem_parser = subcommands.add_parser(
+        "memory",
+        help="read or update the project memory",
+        epilog="example:\n  proofkit memory show\n  proofkit memory add --key project --text 'Node 20, TypeScript, pnpm'",
+    )
+    mem_sub = mem_parser.add_subparsers(dest="mem_action", required=True, parser_class=_HelpfulParser)
 
-    mem_show = mem_sub.add_parser("show", help="print memory file(s)")
+    mem_show = mem_sub.add_parser(
+        "show",
+        help="print memory file(s)",
+        epilog="example:\n  proofkit memory show\n  proofkit memory show --key decisions",
+    )
     mem_show.add_argument(
         "--key",
         default=None,
@@ -334,7 +453,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     mem_show.add_argument("--root", default=".", help="repository root; defaults to the current directory")
 
-    mem_add = mem_sub.add_parser("add", help="append content to a memory file")
+    mem_add = mem_sub.add_parser(
+        "add",
+        help="append content to a memory file",
+        epilog="example:\n  proofkit memory add --key project --text 'Node 20, TypeScript, pnpm'",
+    )
     mem_add.add_argument(
         "--key",
         required=True,
@@ -347,6 +470,7 @@ def build_parser() -> argparse.ArgumentParser:
     cmd_parser = subcommands.add_parser(
         "install-commands",
         help="install ProofKit AI command scaffolds for a supported agent integration",
+        epilog="example:\n  proofkit install-commands --integration github-copilot\n  proofkit install-commands --integration cursor --scope user",
     )
     cmd_parser.add_argument(
         "--integration",
@@ -376,6 +500,7 @@ def build_parser() -> argparse.ArgumentParser:
     ci_parser = subcommands.add_parser(
         "ci-template",
         help="write a CI workflow template that runs `proofkit guard` on every push",
+        epilog="example:\n  proofkit ci-template\n  proofkit ci-template --type github-actions",
     )
     ci_parser.add_argument(
         "--type",
@@ -473,6 +598,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "new":
         root = Path(args.root).resolve()
         findings = create_change(root, args.change_id, args.profile, args.title)
+        if findings:
+            return print_findings(root, findings)
+        return 0
+
+    if args.command == "ready":
+        root = Path(args.root).resolve()
+        findings = mark_artifact_ready(root, args.change_id)
         if findings:
             return print_findings(root, findings)
         return 0

@@ -369,3 +369,52 @@ def create_change(root: Path, change_id: str, profile: str, title: str | None) -
     for filename in PROFILE_ARTIFACTS[profile]:
         print("  " + _dim("-") + f" {filename}")
     return []
+
+
+def mark_artifact_ready(root: Path, change_id: str) -> list[Finding]:
+    """Mark the current phase artifact as status: ready.
+
+    This is the UX-friendly alternative to manually editing the frontmatter.
+    The user still fills in the artifact content; this command signals
+    completion once the content is done.
+    """
+    from ._wf_registry import _PHASE_ARTIFACT_FILE
+    from ._wf_inference import workflow_state
+    from ._wf_evidence import set_frontmatter_value
+
+    findings = validate_change_id(change_id)
+    if findings:
+        return findings
+
+    change_dir = change_directory(root, change_id)
+    if not change_dir.is_dir():
+        return [Finding("error", change_dir, "change does not exist")]
+
+    state = workflow_state(root, change_id)
+
+    artifact_filename = _PHASE_ARTIFACT_FILE.get(state.phase)
+    if artifact_filename is None:
+        phase_label = state.phase.value
+        return [
+            Finding(
+                "error",
+                change_dir,
+                f"phase '{phase_label}' has no editable artifact — "
+                "use `proofkit verify` to advance through the verify phase, "
+                "or `proofkit transition` for automated phases",
+            )
+        ]
+
+    path = change_dir / artifact_filename
+    if not path.is_file():
+        return [Finding("error", path, f"{artifact_filename} is missing — run `proofkit run {change_id}` to recreate it")]
+
+    text = path.read_text(encoding="utf-8")
+    text = set_frontmatter_value(text, "status", "ready")
+    text = set_frontmatter_value(text, "updated", date.today().isoformat())
+    path.write_text(text, encoding="utf-8")
+
+    rel = path.relative_to(root).as_posix()
+    print(_green("\u2714") + f" Marked ready: {_bold(rel)}")
+    print(_dim(f"  Next: proofkit transition {change_id} {state.phase.value}"))
+    return []

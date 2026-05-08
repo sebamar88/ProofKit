@@ -12,7 +12,7 @@ If a command didn’t run — or failed — the system blocks progress.
 
 ## Why not existing SDD frameworks?
 
-| Feature                          | SDD-Core / ProofKit | Spec-Kit | OpenSpec | BMAD | Agent Teams |
+| Feature                          | ProofKit / ProofKit | Spec-Kit | OpenSpec | BMAD | Agent Teams |
 |----------------------------------|--------------------|----------|----------|------|-------------|
 | Spec-driven workflow             | ✅                 | ✅       | ✅       | ✅   | ⚠️ Partial  |
 | Structured artifacts             | ✅                 | ✅       | ✅       | ✅   | ⚠️ Partial  |
@@ -333,7 +333,7 @@ proofkit --trace transition my-change specify --root .
 
 ## Current Status
 
-Current release: `v0.25.0`
+Current release: `v0.26.0`
 
 Production-ready:
 

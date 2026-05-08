@@ -1,27 +1,6 @@
-# SDD-Core: Draft Proposal
+Draft a proposal for the active ProofKit change.
 
-I'll help you write the **proposal** artifact for the current SDD-Core change.
-Before I start, answer the following questions:
-
-1. **Change ID** – What is the `change_id`?
-   *(run `sdd-core status` if you need to check active changes)*
-
-2. **Intent** – In one sentence, what problem does this change solve?
-
-3. **Scope** – What is explicitly *in scope* and what is explicitly *out of scope*?
-
-4. **Success definition** – How will you know the change succeeded?
-   *(tests, metrics, user-visible behavior, acceptance criteria)*
-
-5. **Key risks** – What could go wrong? Any blockers or dependencies?
-
----
-
-Once you answer the questions above I will write
-`.sdd/changes/<change_id>/proposal.md` with `status: draft`.
-
-When the proposal is complete and reviewed, set `status: ready` and run:
-
-```bash
-sdd-core transition <change_id> specify
-```
+1. Run `proofkit status` to find the active `change_id`.
+2. Ask the user: **"What are you trying to change and why?"** — skip if the intent is already clear from context.
+3. Write `.proofkit/changes/<change_id>/proposal.md`. Keep it tight: one-sentence intent, explicit scope, and how success is measured. No fluff.
+4. Run `proofkit ready <change_id>` to mark the proposal ready and advance to SPECIFY.

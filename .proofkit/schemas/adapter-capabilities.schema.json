@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://sdd-core.local/schemas/adapter-capabilities.schema.json",
-  "title": "SDD-Core Adapter Capabilities",
+  "$id": "https://proofkit.local/schemas/adapter-capabilities.schema.json",
+  "title": "ProofKit Adapter Capabilities",
   "type": "object",
   "additionalProperties": true,
   "required": ["schema", "adapter", "version", "profiles", "agents", "skills", "verification", "state"],

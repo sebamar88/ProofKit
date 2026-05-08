@@ -6,9 +6,9 @@ created: 2026-05-03
 updated: 2026-05-03
 ---
 
-# SDD-Core Protocol
+# ProofKit Protocol
 
-This project uses SDD-Core Protocol v0.1.
+This project uses ProofKit Protocol v0.1.
 
 Canonical explanatory spec:
 

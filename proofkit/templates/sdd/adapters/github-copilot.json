@@ -8,7 +8,7 @@
     "operating_system": "any",
     "path_translation": true,
     "process_execution": "integrated-terminal",
-    "state_location": "runtime-owned-outside-sdd-core",
+    "state_location": "runtime-owned-outside-proofkit",
     "recommended_invocation": "copilot-chat-or-agent-mode"
   },
   "profiles": {

@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "sdd.extension.v1",
-  "title": "SDD-Core Extension Manifest",
-  "description": "Manifest for an SDD-Core extension package.",
+  "title": "ProofKit Extension Manifest",
+  "description": "Manifest for an ProofKit extension package.",
   "type": "object",
   "required": ["schema", "name", "version", "description", "author"],
   "additionalProperties": false,

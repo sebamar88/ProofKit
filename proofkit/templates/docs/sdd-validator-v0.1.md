@@ -1,17 +1,17 @@
 ---
 schema: sdd.tooling-doc.v1
-title: SDD-Core Reference Tooling v0.1
+title: ProofKit Reference Tooling v0.1
 status: draft
 date: 2026-05-03
 audience: adapter-authors
 scope: reference-tooling
 ---
 
-# SDD-Core Reference Tooling v0.1
+# ProofKit Reference Tooling v0.1
 
 ## Purpose
 
-`scripts/sdd.py` is a dependency-free reference utility for validating the repository's SDD-Core artifacts, showing SDD status, creating change artifact sets, checking archive readiness, syncing living specs, and archiving verified changes.
+`scripts/sdd.py` is a dependency-free reference utility for validating the repository's ProofKit artifacts, showing SDD status, creating change artifact sets, checking archive readiness, syncing living specs, and archiving verified changes.
 
 It is not the protocol. It is a small portable tool that proves the initial artifact layout can be checked without requiring a specific agent, shell, package manager, or operating system.
 
